@@ -20,6 +20,12 @@ const cannedReplies = [
   },
 ]
 
+const SYSTEM_PROMPT =
+  'You are AETHER, an AI co-Dungeon Master for a Dungeons & Dragons 5th Edition (5e) campaign called "The Sunken Crown". ' +
+  'The party is four level-5 PCs: Kaelen (Half-Elf Paladin), Mira (Halfling Arcane Trickster), Brother Aldous (Tempest Cleric), and Lyra (Evocation Wizard). ' +
+  'The threat is the Drowned Choir cult beneath the flooded town of Hollowmere. ' +
+  'Answer as a concise, practical co-DM: stay on the 5e rules (cite the rule when relevant), keep encounters CR-balanced for the party, and write in the DM’s voice. Use markdown **bold** sparingly. Keep replies short.'
+
 export default function CoGMPanel({ onSpawnCard }) {
   const [tab, setTab] = useState('chat')
   const [msgs, setMsgs] = useState([
@@ -28,24 +34,56 @@ export default function CoGMPanel({ onSpawnCard }) {
   const [input, setInput] = useState('')
   const [typing, setTyping] = useState(false)
   const [replyIdx, setReplyIdx] = useState(0)
+  const [mode, setMode] = useState('demo') // 'demo' | 'live'
   const scrollRef = useRef(null)
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [msgs, typing])
 
-  const send = (text) => {
-    const content = (text ?? input).trim()
-    if (!content) return
-    setMsgs((m) => [...m, { role: 'gm', text: content }])
-    setInput('')
-    setTyping(true)
+  // Fall back to a scripted "demo" reply (used when no AI backend/key).
+  const demoReply = () => {
+    setMode('demo')
     const reply = cannedReplies[replyIdx % cannedReplies.length]
     setReplyIdx((i) => i + 1)
     setTimeout(() => {
       setTyping(false)
       setMsgs((m) => [...m, { role: 'ai', ...reply }])
-    }, 1100)
+    }, 650)
+  }
+
+  const send = async (text) => {
+    const content = (text ?? input).trim()
+    if (!content) return
+    const history = msgs
+    setMsgs((m) => [...m, { role: 'gm', text: content }])
+    setInput('')
+    setTyping(true)
+
+    const apiMessages = [...history, { role: 'gm', text: content }].map((m) => ({
+      role: m.role === 'gm' ? 'user' : 'assistant',
+      content: m.text,
+    }))
+
+    try {
+      const r = await fetch('/api/cogm', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ system: SYSTEM_PROMPT, messages: apiMessages }),
+      })
+      if (r.ok) {
+        const j = await r.json()
+        if (j.reply) {
+          setMode('live')
+          setTyping(false)
+          setMsgs((m) => [...m, { role: 'ai', text: j.reply }])
+          return
+        }
+      }
+    } catch {
+      // network error / no backend in local dev → demo fallback
+    }
+    demoReply()
   }
 
   return (
@@ -60,6 +98,16 @@ export default function CoGMPanel({ onSpawnCard }) {
           <p className="text-sm font-semibold leading-tight">AI co-DM</p>
           <p className="truncate text-[11px] text-white/40">grounded in “The Sunken Crown” · 12 sessions</p>
         </div>
+        <span
+          title={mode === 'live' ? 'Connected to a live AI model' : 'Scripted demo replies — configure AI_API_KEY for live AI'}
+          className={`ml-auto shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+            mode === 'live'
+              ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-200'
+              : 'border-white/10 bg-white/5 text-white/50'
+          }`}
+        >
+          {mode === 'live' ? '● Live AI' : 'Demo mode'}
+        </span>
       </div>
 
       {/* Tabs */}

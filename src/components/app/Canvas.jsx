@@ -1,28 +1,53 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import InitiativeTracker from './InitiativeTracker.jsx'
 import { shopItems, sessionNotes } from '../../data/mock.js'
-import { Dice, Map, Bag, Scroll, Swords, Skull, Sparkles } from '../Icons.jsx'
+import { Dice, Map, Bag, Scroll, Swords, Skull, Sparkles, X } from '../Icons.jsx'
 
-export default function Canvas({ cards, setCards, zoom = 1 }) {
+const ZOOM_MIN = 0.5
+const ZOOM_MAX = 1.6
+
+export default function Canvas({ cards, setCards, zoom = 1, setZoom }) {
   const [offset, setOffset] = useState({ x: 0, y: 0 })
   const [active, setActive] = useState(null)
+  const [panning, setPanning] = useState(false)
   const drag = useRef(null)
   const surfaceRef = useRef(null)
 
+  // Ctrl + wheel to zoom. Attached natively so we can preventDefault
+  // (React's onWheel is passive and can't block the browser page-zoom).
+  useEffect(() => {
+    const el = surfaceRef.current
+    if (!el || !setZoom) return
+    const onWheel = (e) => {
+      if (!e.ctrlKey) return
+      e.preventDefault()
+      const delta = e.deltaY > 0 ? -0.1 : 0.1
+      setZoom((z) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, +(z + delta).toFixed(2))))
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [setZoom])
+
+  const removeCard = (id) => setCards((cs) => cs.filter((c) => c.id !== id))
+
   const onPointerDownSurface = (e) => {
+    // Middle mouse button (button === 1) pans the board.
+    if (e.button !== 1) return
     if (e.target.closest('[data-card]')) return
+    e.preventDefault()
+    setPanning(true)
     drag.current = { mode: 'pan', sx: e.clientX, sy: e.clientY, ox: offset.x, oy: offset.y }
     surfaceRef.current?.setPointerCapture?.(e.pointerId)
   }
   const onPointerDownCard = (e, id) => {
+    if (e.button !== 0) return // left button drags cards
     e.stopPropagation()
     setActive(id)
     setCards((cs) => {
       const idx = cs.findIndex((c) => c.id === id)
       const card = cs[idx]
       drag.current = { mode: 'card', id, sx: e.clientX, sy: e.clientY, cx: card.x, cy: card.y }
-      const reordered = [...cs.slice(0, idx), ...cs.slice(idx + 1), card]
-      return reordered
+      return [...cs.slice(0, idx), ...cs.slice(idx + 1), card]
     })
   }
   const onPointerMove = (e) => {
@@ -33,7 +58,10 @@ export default function Canvas({ cards, setCards, zoom = 1 }) {
     if (d.mode === 'pan') setOffset({ x: d.ox + dx, y: d.oy + dy })
     else setCards((cs) => cs.map((c) => (c.id === d.id ? { ...c, x: d.cx + dx, y: d.cy + dy } : c)))
   }
-  const endDrag = () => { drag.current = null }
+  const endDrag = () => {
+    drag.current = null
+    setPanning(false)
+  }
 
   return (
     <div
@@ -42,7 +70,9 @@ export default function Canvas({ cards, setCards, zoom = 1 }) {
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}
       onPointerLeave={endDrag}
-      className="dot-grid relative h-full w-full cursor-grab touch-none overflow-hidden bg-ink-900 active:cursor-grabbing"
+      onMouseDown={(e) => { if (e.button === 1) e.preventDefault() }}
+      onAuxClick={(e) => { if (e.button === 1) e.preventDefault() }}
+      className={`dot-grid relative h-full w-full touch-none overflow-hidden bg-ink-900 ${panning ? 'cursor-grabbing' : 'cursor-default'}`}
     >
       {/* subtle vignette */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_120%_at_50%_-10%,rgba(138,92,240,0.08),transparent_50%)]" />
@@ -52,12 +82,18 @@ export default function Canvas({ cards, setCards, zoom = 1 }) {
         style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})` }}
       >
         {cards.map((c) => (
-          <CanvasCard key={c.id} card={c} active={active === c.id} onHeaderDown={onPointerDownCard} />
+          <CanvasCard
+            key={c.id}
+            card={c}
+            active={active === c.id}
+            onHeaderDown={onPointerDownCard}
+            onClose={removeCard}
+          />
         ))}
       </div>
 
       <div className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full border border-white/10 bg-ink-800/80 px-3 py-1 text-[11px] text-white/40 backdrop-blur">
-        Drag the board to pan · drag a card header to move it
+        Middle-click + drag to pan · Ctrl + scroll to zoom · drag a card header to move · ✕ to close
       </div>
     </div>
   )
@@ -76,7 +112,7 @@ const headIcons = {
   initiative: Swords, map: Map, npc: Skull, shop: Bag, notes: Scroll, roll: Dice, gen: Sparkles,
 }
 
-function CanvasCard({ card, active, onHeaderDown }) {
+function CanvasCard({ card, active, onHeaderDown, onClose }) {
   const Icon = headIcons[card.type] || Scroll
   return (
     <div
@@ -92,10 +128,16 @@ function CanvasCard({ card, active, onHeaderDown }) {
       >
         <Icon size={15} className={headTints[card.type]} />
         <span className="truncate text-xs font-semibold text-white/85">{card.title}</span>
-        <span className="ml-auto flex gap-1">
-          <span className="h-2 w-2 rounded-full bg-white/15" />
-          <span className="h-2 w-2 rounded-full bg-white/15" />
-        </span>
+        <button
+          type="button"
+          title="Close"
+          aria-label="Close card"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); onClose(card.id) }}
+          className="ml-auto inline-flex h-5 w-5 items-center justify-center rounded text-white/40 transition hover:bg-white/10 hover:text-white"
+        >
+          <X size={13} />
+        </button>
       </div>
       <div className="p-3">
         <CardBody card={card} />
@@ -132,7 +174,6 @@ function MapCard() {
         <div className="absolute inset-0 grid grid-cols-10 grid-rows-7">
           {Array.from({ length: 70 }).map((_, i) => <div key={i} className="border border-white/5" />)}
         </div>
-        {/* tokens */}
         <Token x="22%" y="40%" color="bg-aether-300" label="K" />
         <Token x="35%" y="58%" color="bg-aether-300" label="M" />
         <Token x="64%" y="46%" color="bg-rune-300" label="S" />
