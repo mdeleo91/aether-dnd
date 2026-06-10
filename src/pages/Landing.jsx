@@ -159,16 +159,16 @@ export default function Landing() {
       <section id="compare" className="border-y border-white/5 bg-ink-800/60">
         <div className="mx-auto max-w-5xl px-5 py-24 sm:px-8">
           <SectionHead
-            kicker="AETHER vs. MITHOS"
+            kicker="Why AETHER"
             title="The DM screen you love, with a mind of its own"
-            sub="MITHOS is a brilliant local-first DM screen. AETHER keeps that foundation and adds a 5e-trained AI layer, CR-balanced encounters, SRD rules lookup, cloud sync, and shared campaigns — for D&D tables that want a co-DM, not just a toolkit."
+            sub="Traditional GM screens and virtual tabletops give you maps and trackers. AETHER keeps that foundation and adds a 5e-trained AI layer, CR-balanced encounters, SRD rules lookup, cloud sync, and shared campaigns — for D&D tables that want a co-DM, not just a toolkit."
           />
           <div className="card-grad-border glass mt-12 overflow-hidden rounded-2xl">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-white/10 text-left">
                   <th className="px-5 py-4 font-medium text-white/50">Capability</th>
-                  <th className="px-3 py-4 text-center font-medium text-white/50">MITHOS</th>
+                  <th className="px-3 py-4 text-center font-medium text-white/50">GM screen / VTT</th>
                   <th className="px-3 py-4 text-center font-semibold text-amethyst-200">AETHER</th>
                 </tr>
               </thead>
@@ -176,7 +176,7 @@ export default function Landing() {
                 {compareRows.map((r, i) => (
                   <tr key={r.feature} className={i % 2 ? 'bg-white/[0.015]' : ''}>
                     <td className="px-5 py-3.5 text-white/80">{r.feature}</td>
-                    <td className="px-3 py-3.5 text-center"><Mark value={r.mithos} /></td>
+                    <td className="px-3 py-3.5 text-center"><Mark value={r.legacy} /></td>
                     <td className="px-3 py-3.5 text-center"><Mark value={r.aether} /></td>
                   </tr>
                 ))}
