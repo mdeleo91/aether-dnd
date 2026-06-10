@@ -127,3 +127,19 @@ export const Skull = make(
     <circle cx="15" cy="12" r="1.4" fill="currentColor" stroke="none" />
   </>,
 )
+export const X = make(<path d="M6 6l12 12M18 6 6 18" />)
+export const Expand = make(<path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3" />)
+export const Shrink = make(<path d="M8 3v3a2 2 0 0 1-2 2H3M21 8h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3M16 21v-3a2 2 0 0 1 2-2h3" />)
+export const LogOut = make(
+  <>
+    <path d="M9 21H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3" />
+    <path d="M16 17l5-5-5-5M21 12H9" />
+  </>,
+)
+export const UserPlus = make(
+  <>
+    <circle cx="9" cy="8" r="3.2" />
+    <path d="M3 20a6 6 0 0 1 12 0" />
+    <path d="M19 8v6M16 11h6" />
+  </>,
+)

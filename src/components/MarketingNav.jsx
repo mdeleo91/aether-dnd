@@ -7,7 +7,7 @@ const links = [
   { to: '/#features', label: 'Features' },
   { to: '/#cogm', label: 'AI co-DM' },
   { to: '/pricing', label: 'Pricing' },
-  { to: '/#compare', label: 'vs. MITHOS' },
+  { to: '/#compare', label: 'Why AETHER' },
 ]
 
 export default function MarketingNav() {
