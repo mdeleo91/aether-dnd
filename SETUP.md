@@ -1,0 +1,77 @@
+# AETHER — setup for real services
+
+Everything below is **optional**. With no configuration the app runs in demo mode (local
+auth + scripted co-DM). Provide these to switch on the real thing. **Never commit secrets** —
+set them in `.env` locally and in your Vercel project's Environment Variables.
+
+---
+
+## 1. Supabase Auth (email/password + players)
+
+1. Create a project at <https://supabase.com> → **New project**.
+2. **Project Settings → API** and copy:
+   - **Project URL** → `VITE_SUPABASE_URL`
+   - **anon public** key → `VITE_SUPABASE_ANON_KEY`
+3. **Authentication → Providers → Email**: keep enabled. (Turn off "Confirm email" during
+   testing if you want instant logins.)
+4. **Authentication → Providers → Anonymous Sign-ins**: enable this so the **player join**
+   flow (`/join` → `/play`) can create lightweight player sessions.
+
+| Variable | Where | Example |
+|---|---|---|
+| `VITE_SUPABASE_URL` | client | `https://abcd.supabase.co` |
+| `VITE_SUPABASE_ANON_KEY` | client | `eyJhbGciOi...` |
+
+Roles: DM signups are tagged `role: dm` in `user_metadata`; players get `role: player`.
+
+---
+
+## 2. Google sign-in (Supabase OAuth)
+
+1. **Google Cloud Console** (<https://console.cloud.google.com>) → create/select a project →
+   **APIs & Services → Credentials → Create Credentials → OAuth client ID** → *Web application*.
+2. Add an **Authorized redirect URI** — Supabase gives you the exact value at
+   **Authentication → Providers → Google**. It looks like:
+   `https://YOUR-PROJECT.supabase.co/auth/v1/callback`
+3. Copy the generated **Client ID** and **Client secret** into Supabase
+   **Authentication → Providers → Google**, and toggle it **on**.
+4. In Supabase **Authentication → URL Configuration**, set **Site URL** to your deployed app
+   (e.g. `https://aether-dnd.vercel.app`) and add it (plus `http://localhost:5173`) to the
+   **Redirect URLs** allow-list.
+
+No extra env vars are needed in this app — Google is handled entirely through Supabase. The
+"Continue with Google" button calls `supabase.auth.signInWithOAuth({ provider: 'google' })`.
+
+---
+
+## 3. Live AI co-DM (`/api/cogm`)
+
+The co-DM works without this (scripted demo replies). To use a real LLM, set **server-side**
+env vars (no `VITE_` prefix, so they stay off the browser):
+
+| Variable | Required | Notes |
+|---|---|---|
+| `AI_API_KEY` | yes | OpenAI or Anthropic API key |
+| `AI_PROVIDER` | no | `openai` (default) or `anthropic` |
+| `AI_MODEL` | no | defaults to `gpt-4o-mini` / `claude-3-5-haiku-latest` |
+
+- OpenAI keys: <https://platform.openai.com/api-keys>
+- Anthropic keys: <https://console.anthropic.com/>
+
+The panel shows a green **● Live AI** badge once a key is configured; otherwise **Demo mode**.
+Locally, run `vercel dev` to serve `/api/cogm` (plain `vite dev` won't).
+
+---
+
+## 4. Setting env vars on Vercel
+
+Project → **Settings → Environment Variables**. Add all of the above (Production +
+Preview). Re-deploy after changing them. `VITE_*` are bundled at build time; `AI_*` are read
+at request time by the serverless function.
+
+## Quick checklist
+- [ ] `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` set
+- [ ] Email provider on; Anonymous sign-ins on (for players)
+- [ ] Google OAuth client created + configured in Supabase (optional)
+- [ ] Site URL / redirect URLs include your domain + `localhost:5173`
+- [ ] `AI_API_KEY` (+ optional `AI_PROVIDER`, `AI_MODEL`) for live co-DM (optional)
