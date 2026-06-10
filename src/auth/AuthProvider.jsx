@@ -4,15 +4,26 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 const AuthContext = createContext(null)
 export const useAuth = () => useContext(AuthContext)
 
-// Roles: 'dm' (Dungeon Master) or 'player'. Stored in Supabase user_metadata
-// when configured, or held locally in demo mode.
+const DEMO_KEY = 'aether:auth'
+
 function roleOf(user) {
   return user?.user_metadata?.role ?? (user ? 'dm' : null)
 }
 
+// Demo sessions persist locally so a refresh keeps you logged in (real
+// Supabase sessions persist via Supabase itself).
+function readDemo() {
+  try {
+    const raw = localStorage.getItem(DEMO_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null)
-  const [role, setRole] = useState(null)
+  const [user, setUser] = useState(() => (isSupabaseConfigured ? null : readDemo()))
+  const [role, setRole] = useState(() => (isSupabaseConfigured ? null : roleOf(readDemo())))
   const [loading, setLoading] = useState(isSupabaseConfigured)
 
   useEffect(() => {
@@ -34,6 +45,15 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
+  const setDemo = (u) => {
+    setUser(u)
+    setRole(roleOf(u))
+    try {
+      localStorage.setItem(DEMO_KEY, JSON.stringify(u))
+    } catch {
+      /* ignore */
+    }
+  }
   const demoUser = (email, r, extra = {}) => ({
     id: `demo-${r}`,
     email: email || null,
@@ -42,8 +62,7 @@ export function AuthProvider({ children }) {
 
   async function signUp({ email, password, name }) {
     if (!isSupabaseConfigured) {
-      setUser(demoUser(email, 'dm', { name }))
-      setRole('dm')
+      setDemo(demoUser(email, 'dm', { name }))
       return { demo: true }
     }
     return supabase.auth.signUp({
@@ -55,8 +74,7 @@ export function AuthProvider({ children }) {
 
   async function signIn({ email, password }) {
     if (!isSupabaseConfigured) {
-      setUser(demoUser(email, 'dm'))
-      setRole('dm')
+      setDemo(demoUser(email, 'dm'))
       return { demo: true }
     }
     return supabase.auth.signInWithPassword({ email, password })
@@ -64,8 +82,7 @@ export function AuthProvider({ children }) {
 
   async function signInWithGoogle() {
     if (!isSupabaseConfigured) {
-      setUser(demoUser('google-user@demo.aether', 'dm'))
-      setRole('dm')
+      setDemo(demoUser('google-user@demo.aether', 'dm'))
       return { demo: true }
     }
     return supabase.auth.signInWithOAuth({
@@ -74,8 +91,6 @@ export function AuthProvider({ children }) {
     })
   }
 
-  // Players join lightly. With Supabase we use anonymous sign-in (must be
-  // enabled in the project); otherwise we fall back to a local demo session.
   async function joinAsPlayer({ name, code }) {
     if (isSupabaseConfigured && typeof supabase.auth.signInAnonymously === 'function') {
       const { error } = await supabase.auth.signInAnonymously({
@@ -86,13 +101,17 @@ export function AuthProvider({ children }) {
         return { ok: true }
       }
     }
-    setUser(demoUser(null, 'player', { name, code }))
-    setRole('player')
+    setDemo(demoUser(null, 'player', { name, code }))
     return { demo: true }
   }
 
   async function signOut() {
     if (isSupabaseConfigured) await supabase.auth.signOut()
+    try {
+      localStorage.removeItem(DEMO_KEY)
+    } catch {
+      /* ignore */
+    }
     setUser(null)
     setRole(null)
   }
