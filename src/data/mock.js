@@ -162,16 +162,16 @@ export const testimonials = [
 ]
 
 export const compareRows = [
-  { feature: 'Infinite-canvas workspace', mithos: true, aether: true },
-  { feature: '5e initiative tracker & dice', mithos: true, aether: true },
-  { feature: 'Magic shop & NPC generators', mithos: true, aether: true },
-  { feature: 'Dual-screen player map', mithos: true, aether: true },
-  { feature: 'Works fully offline / local-first', mithos: 'full', aether: 'partial' },
-  { feature: 'No account required', mithos: true, aether: false },
-  { feature: 'AI co-DM (NPCs, lore, dialogue)', mithos: false, aether: true },
-  { feature: 'CR-balanced 5e encounter builder', mithos: false, aether: true },
-  { feature: 'D&D 5e monster & statblock library', mithos: false, aether: true },
-  { feature: '5e SRD rules lookup (natural language)', mithos: false, aether: true },
-  { feature: 'Campaign Memory assistant', mithos: false, aether: true },
-  { feature: 'Cloud sync across devices', mithos: false, aether: true },
+  { feature: 'Infinite-canvas workspace', legacy: true, aether: true },
+  { feature: '5e initiative tracker & dice', legacy: true, aether: true },
+  { feature: 'Magic shop & NPC generators', legacy: true, aether: true },
+  { feature: 'Dual-screen player map', legacy: true, aether: true },
+  { feature: 'Works fully offline / local-first', legacy: 'full', aether: 'partial' },
+  { feature: 'No account required', legacy: true, aether: false },
+  { feature: 'AI co-DM (NPCs, lore, dialogue)', legacy: false, aether: true },
+  { feature: 'CR-balanced 5e encounter builder', legacy: false, aether: true },
+  { feature: 'D&D 5e monster & statblock library', legacy: false, aether: true },
+  { feature: '5e SRD rules lookup (natural language)', legacy: false, aether: true },
+  { feature: 'Campaign Memory assistant', legacy: false, aether: true },
+  { feature: 'Cloud sync across devices', legacy: false, aether: true },
 ]
