@@ -4,33 +4,68 @@ import Logo from '../components/Logo.jsx'
 import Canvas from '../components/app/Canvas.jsx'
 import CoGMPanel from '../components/app/CoGMPanel.jsx'
 import { useAuth } from '../auth/AuthProvider.jsx'
-import { loadCampaign, saveCampaign } from '../lib/storage.js'
+import {
+  loadCampaignsIndex, saveCampaignsIndex, loadCampaign, saveCampaign,
+  saveCampaignNow, deleteCampaign, loadLegacyCampaign,
+} from '../lib/storage.js'
 import { publishPlayer } from '../lib/playerSync.js'
-import { defaultCampaign, makeCard, CAMPAIGN_VERSION } from '../app/campaignState.js'
+import { defaultCampaign, normalizeCampaign, makeCard, CAMPAIGN_VERSION } from '../app/campaignState.js'
 import { newId } from '../app/generators.js'
 import {
-  Swords, Map, Dice, Bag, Scroll, Skull, Brain, Users, Search,
-  Plus, ChevronRight, Sparkles, Globe, Layers, Expand, Shrink, LogOut, X,
+  Swords, Map, Dice, Scroll, Skull, Brain, Users, Search, MapPin, Book, Bag,
+  Plus, ChevronRight, Sparkles, Globe, Expand, Shrink, LogOut, X, Check,
 } from '../components/Icons.jsx'
 
 const tools = [
   { type: 'initiative', icon: Swords, label: 'Initiative', w: 330 },
   { type: 'map', icon: Map, label: 'Battle Map', w: 470 },
+  { type: 'party', icon: Users, label: 'Party', w: 340 },
   { type: 'npc', icon: Skull, label: 'NPC', w: 320 },
+  { type: 'location', icon: MapPin, label: 'Location', w: 340 },
+  { type: 'library', icon: Book, label: 'Library', w: 320 },
   { type: 'shop', icon: Bag, label: 'Shop', w: 350 },
   { type: 'notes', icon: Scroll, label: 'Notes', w: 360 },
   { type: 'roll', icon: Dice, label: 'Roll Table', w: 330 },
 ]
+
+// Load (and, on first run, seed/migrate) a user's campaigns index + current
+// campaign. Idempotent — safe to call again when the user id changes.
+function bootstrap(userKey) {
+  let index = loadCampaignsIndex(userKey)
+  if (!index || !Array.isArray(index.campaigns) || index.campaigns.length === 0) {
+    const legacy = loadLegacyCampaign(userKey)
+    const id = newId('camp')
+    const seed =
+      legacy && legacy.cards
+        ? normalizeCampaign({ ...legacy, name: legacy.name || 'The Sunken Crown' }, 'The Sunken Crown')
+        : defaultCampaign('The Sunken Crown')
+    saveCampaignNow(userKey, id, seed)
+    index = { campaigns: [{ id, name: seed.name, createdAt: Date.now() }], currentId: id }
+    saveCampaignsIndex(userKey, index)
+    return { index, campaign: seed }
+  }
+  if (!index.currentId || !index.campaigns.find((c) => c.id === index.currentId)) {
+    index.currentId = index.campaigns[0].id
+  }
+  const meta = index.campaigns.find((c) => c.id === index.currentId)
+  const loaded = loadCampaign(userKey, index.currentId)
+  const campaign =
+    loaded && loaded.v === CAMPAIGN_VERSION
+      ? normalizeCampaign(loaded, meta?.name)
+      : normalizeCampaign(loaded, meta?.name) // normalize older shapes too
+  return { index, campaign }
+}
 
 export default function AppShell() {
   const { user, signOut } = useAuth()
   const nav = useNavigate()
   const userKey = user?.id || 'guest'
 
-  const [campaign, setCampaign] = useState(() => {
-    const saved = loadCampaign(userKey)
-    return saved && saved.v === CAMPAIGN_VERSION ? saved : defaultCampaign()
-  })
+  const boot = useRef(null)
+  if (!boot.current) boot.current = bootstrap(userKey)
+
+  const [index, setIndex] = useState(boot.current.index)
+  const [campaign, setCampaign] = useState(boot.current.campaign)
   const [offset, setOffset] = useState({ x: 0, y: 0 })
   const [zoom, setZoom] = useState(1)
   const [cogmOpen, setCogmOpen] = useState(true)
@@ -38,15 +73,32 @@ export default function AppShell() {
   const [palette, setPalette] = useState(false)
   const shellRef = useRef(null)
 
+  const currentId = index.currentId
   const cards = campaign.cards
   const player = campaign.player || { on: false, pushed: null }
   const dmName = user?.user_metadata?.name || (user?.email ? user.email.split('@')[0] : 'Dungeon Master')
+  const currentName = index.campaigns.find((c) => c.id === currentId)?.name || campaign.name || 'Campaign'
 
-  // Persist the whole campaign (cards + data + player) per user.
+  // Re-bootstrap if the signed-in user changes (keys are per-user).
+  const lastUser = useRef(userKey)
   useEffect(() => {
-    saveCampaign(userKey, campaign)
-  }, [campaign, userKey])
+    if (lastUser.current === userKey) return
+    lastUser.current = userKey
+    const b = bootstrap(userKey)
+    setIndex(b.index)
+    setCampaign(b.campaign)
+    setOffset({ x: 0, y: 0 })
+    setZoom(1)
+  }, [userKey])
 
+  // Persist the active campaign (debounced) on every edit.
+  useEffect(() => {
+    saveCampaign(userKey, currentId, campaign)
+  }, [campaign, userKey, currentId])
+
+  const persistIndex = (next) => { setIndex(next); saveCampaignsIndex(userKey, next) }
+
+  // ---- card helpers -------------------------------------------------------
   const setCards = (updater) =>
     setCampaign((c) => ({ ...c, cards: typeof updater === 'function' ? updater(c.cards) : updater }))
   const onData = (id, patch) =>
@@ -73,7 +125,61 @@ export default function AppShell() {
     setPalette(false)
   }
 
-  // Player display
+  // ---- campaign-level state (party + libraries), passed to cards as `lib` --
+  const lib = useMemo(() => ({
+    party: campaign.party || [],
+    npcLibrary: campaign.npcLibrary || [],
+    locationLibrary: campaign.locationLibrary || [],
+    addPartyMember: (m) => setCampaign((c) => ({ ...c, party: [...(c.party || []), { id: newId('pc'), ...m }] })),
+    updatePartyMember: (id, patch) => setCampaign((c) => ({ ...c, party: (c.party || []).map((p) => (p.id === id ? { ...p, ...patch } : p)) })),
+    removePartyMember: (id) => setCampaign((c) => ({ ...c, party: (c.party || []).filter((p) => p.id !== id) })),
+    saveNpcToLibrary: (npc) => setCampaign((c) => ({ ...c, npcLibrary: [{ id: newId('npc'), savedAt: Date.now(), npc }, ...(c.npcLibrary || [])] })),
+    removeNpcFromLibrary: (id) => setCampaign((c) => ({ ...c, npcLibrary: (c.npcLibrary || []).filter((n) => n.id !== id) })),
+    saveLocationToLibrary: (location) => setCampaign((c) => ({ ...c, locationLibrary: [{ id: newId('loc'), savedAt: Date.now(), location }, ...(c.locationLibrary || [])] })),
+    removeLocationFromLibrary: (id) => setCampaign((c) => ({ ...c, locationLibrary: (c.locationLibrary || []).filter((l) => l.id !== id) })),
+    addNpcCardFromLibrary: (npc) => setCards((cs) => [...cs, { ...makeCard('npc', 160 + Math.random() * 160, 140 + Math.random() * 120, 320), data: { npc } }]),
+    addLocationCardFromLibrary: (location) => setCards((cs) => [...cs, { ...makeCard('location', 160 + Math.random() * 160, 140 + Math.random() * 120, 340), data: { location, kind: '', note: '' } }]),
+  }), [campaign.party, campaign.npcLibrary, campaign.locationLibrary])
+
+  // ---- campaign operations ------------------------------------------------
+  const switchCampaign = (id) => {
+    if (id === currentId) return
+    saveCampaignNow(userKey, currentId, campaign)
+    const meta = index.campaigns.find((c) => c.id === id)
+    const loaded = loadCampaign(userKey, id)
+    setCampaign(normalizeCampaign(loaded, meta?.name))
+    persistIndex({ ...index, currentId: id })
+    setOffset({ x: 0, y: 0 }); setZoom(1); setPalette(false)
+  }
+  const createCampaign = (name) => {
+    saveCampaignNow(userKey, currentId, campaign)
+    const id = newId('camp')
+    const fresh = defaultCampaign(name || 'New Campaign', { empty: true })
+    saveCampaignNow(userKey, id, fresh)
+    setCampaign(fresh)
+    persistIndex({ campaigns: [...index.campaigns, { id, name: fresh.name, createdAt: Date.now() }], currentId: id })
+    setOffset({ x: 0, y: 0 }); setZoom(1)
+  }
+  const renameCampaign = (id, name) => {
+    if (!name) return
+    persistIndex({ ...index, campaigns: index.campaigns.map((c) => (c.id === id ? { ...c, name } : c)) })
+    if (id === currentId) setCampaign((c) => ({ ...c, name }))
+  }
+  const deleteCampaignById = (id) => {
+    if (index.campaigns.length <= 1) return
+    deleteCampaign(userKey, id)
+    const remaining = index.campaigns.filter((c) => c.id !== id)
+    let nextCurrent = currentId
+    if (id === currentId) {
+      nextCurrent = remaining[0].id
+      const loaded = loadCampaign(userKey, nextCurrent)
+      setCampaign(normalizeCampaign(loaded, remaining[0].name))
+      setOffset({ x: 0, y: 0 }); setZoom(1)
+    }
+    persistIndex({ campaigns: remaining, currentId: nextCurrent })
+  }
+
+  // ---- player display -----------------------------------------------------
   const pushToPlayer = (payload) => {
     setCampaign((c) => ({ ...c, player: { on: true, pushed: payload } }))
     publishPlayer({ on: true, ...payload })
@@ -85,7 +191,7 @@ export default function AppShell() {
       return { ...c, player: { ...(c.player || {}), on } }
     })
 
-  // Fullscreen + keyboard shortcuts
+  // ---- fullscreen + shortcuts --------------------------------------------
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) shellRef.current?.requestFullscreen?.()
     else document.exitFullscreen?.()
@@ -120,14 +226,17 @@ export default function AppShell() {
   return (
     <div ref={shellRef} className="flex h-screen flex-col overflow-hidden bg-ink-900 text-white">
       {/* TOP BAR */}
-      <header className="z-20 flex h-14 shrink-0 items-center gap-3 border-b border-white/5 bg-ink-800/80 px-3 backdrop-blur">
+      <header className="z-30 flex h-14 shrink-0 items-center gap-3 border-b border-white/5 bg-ink-800/80 px-3 backdrop-blur">
         <Logo withWordmark={false} />
-        <div className="hidden items-center gap-1.5 text-sm sm:flex">
-          <span className="text-white/40">Campaigns</span>
-          <ChevronRight size={14} className="text-white/25" />
-          <span className="font-medium text-white/90">The Sunken Crown</span>
-          <span className="ml-1.5 rounded-md bg-amethyst-400/20 px-1.5 py-0.5 text-[10px] text-amethyst-100">Session 12</span>
-        </div>
+        <CampaignMenu
+          campaigns={index.campaigns}
+          currentId={currentId}
+          currentName={currentName}
+          onSwitch={switchCampaign}
+          onCreate={createCampaign}
+          onRename={renameCampaign}
+          onDelete={deleteCampaignById}
+        />
 
         <div className="ml-auto flex items-center gap-2">
           <button onClick={() => setPalette(true)} className="hidden items-center gap-2 rounded-lg border border-white/10 bg-ink-700 px-2.5 py-1.5 text-xs text-white/45 transition hover:text-white/80 md:flex">
@@ -152,7 +261,7 @@ export default function AppShell() {
 
       <div className="flex min-h-0 flex-1">
         {/* LEFT RAIL */}
-        <aside className="flex w-16 shrink-0 flex-col items-center gap-1 border-r border-white/5 bg-ink-800/60 py-3 lg:w-48 lg:items-stretch lg:px-3">
+        <aside className="flex w-16 shrink-0 flex-col items-center gap-1 overflow-y-auto border-r border-white/5 bg-ink-800/60 py-3 lg:w-48 lg:items-stretch lg:px-3">
           <p className="hidden px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-white/35 lg:block">Add to canvas</p>
           {tools.map((t) => (
             <button key={t.type} onClick={() => spawn(t.type, t.w)} title={`Add ${t.label}`} className="group flex items-center gap-3 rounded-lg p-2.5 text-white/60 transition hover:bg-white/5 hover:text-white lg:px-3">
@@ -163,11 +272,8 @@ export default function AppShell() {
           ))}
           <div className="mx-2 my-2 h-px bg-white/5" />
           <a href="/join" target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-lg p-2.5 text-white/60 transition hover:bg-white/5 hover:text-white lg:px-3">
-            <Users size={18} /> <span className="hidden text-sm lg:block">Player link</span>
+            <Globe size={18} /> <span className="hidden text-sm lg:block">Player link</span>
           </a>
-          <button className="flex items-center gap-3 rounded-lg p-2.5 text-white/60 transition hover:bg-white/5 hover:text-white lg:px-3">
-            <Layers size={18} /> <span className="hidden text-sm lg:block">Scenes</span>
-          </button>
 
           <div className="mt-auto hidden lg:block">
             <Link to="/pricing" className="flex items-center gap-2 rounded-lg border border-amethyst-400/30 bg-amethyst-400/10 p-2.5 text-xs text-amethyst-100">
@@ -178,7 +284,7 @@ export default function AppShell() {
 
         {/* CANVAS */}
         <main className="relative min-w-0 flex-1">
-          <Canvas cards={cards} setCards={setCards} zoom={zoom} setZoom={setZoom} offset={offset} setOffset={setOffset} onData={onData} onPush={pushToPlayer} />
+          <Canvas cards={cards} setCards={setCards} zoom={zoom} setZoom={setZoom} offset={offset} setOffset={setOffset} onData={onData} onPush={pushToPlayer} lib={lib} />
 
           <div className="absolute right-4 top-4 z-10 flex flex-col overflow-hidden rounded-lg border border-white/10 bg-ink-800/80 backdrop-blur">
             {[['+', () => setZoom((z) => Math.min(1.6, +(z + 0.1).toFixed(2)))],
@@ -204,6 +310,81 @@ export default function AppShell() {
       </div>
 
       {palette && <CommandPalette cards={cards} onClose={() => setPalette(false)} onFocus={focusCard} onSpawn={(t) => { spawn(t, tools.find((x) => x.type === t)?.w); setPalette(false) }} />}
+    </div>
+  )
+}
+
+// Campaign picker: shows the current campaign, lists all campaigns, and lets you
+// create / switch / rename / delete. New campaigns start as a clean slate.
+function CampaignMenu({ campaigns, currentId, currentName, onSwitch, onCreate, onRename, onDelete }) {
+  const [open, setOpen] = useState(false)
+  const [newName, setNewName] = useState('')
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [open])
+
+  const create = () => {
+    const name = newName.trim() || `Campaign ${campaigns.length + 1}`
+    onCreate(name)
+    setNewName('')
+    setOpen(false)
+  }
+
+  return (
+    <div ref={ref} className="relative hidden sm:block">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm transition hover:bg-white/5"
+      >
+        <span className="text-white/40">Campaign</span>
+        <ChevronRight size={13} className="rotate-90 text-white/30" />
+        <span className="max-w-[180px] truncate font-medium text-white/90">{currentName}</span>
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-full z-40 mt-1 w-72 overflow-hidden rounded-xl border border-white/10 bg-ink-800 shadow-panel">
+          <div className="max-h-64 overflow-auto p-1.5">
+            <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-white/35">Your campaigns</p>
+            {campaigns.map((c) => (
+              <div key={c.id} className={`group flex items-center gap-1 rounded-lg px-2 py-1.5 ${c.id === currentId ? 'bg-white/5' : 'hover:bg-white/5'}`}>
+                <button onClick={() => { onSwitch(c.id); setOpen(false) }} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+                  {c.id === currentId ? <Check size={13} className="shrink-0 text-aether-300" /> : <span className="w-[13px] shrink-0" />}
+                  <span className="truncate text-sm text-white/85">{c.name}</span>
+                </button>
+                <button
+                  onClick={() => { const n = window.prompt('Rename campaign', c.name); if (n && n.trim()) onRename(c.id, n.trim()) }}
+                  title="Rename"
+                  className="rounded px-1 text-[10px] text-white/30 opacity-0 transition hover:text-white group-hover:opacity-100"
+                >Rename</button>
+                {campaigns.length > 1 && (
+                  <button
+                    onClick={() => { if (window.confirm(`Delete campaign “${c.name}”? This cannot be undone.`)) onDelete(c.id) }}
+                    title="Delete"
+                    className="rounded px-1 text-white/25 opacity-0 transition hover:text-red-300 group-hover:opacity-100"
+                  ><X size={12} /></button>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center gap-1.5 border-t border-white/10 p-2">
+            <input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') create() }}
+              placeholder="New campaign name…"
+              className="min-w-0 flex-1 rounded-md border border-white/10 bg-ink-700 px-2 py-1.5 text-xs text-white placeholder:text-white/30 outline-none focus:border-amethyst-400/50"
+            />
+            <button onClick={create} className="inline-flex shrink-0 items-center gap-1 rounded-md bg-gradient-to-r from-aether-300 to-amethyst-400 px-2.5 py-1.5 text-xs font-semibold text-ink-900 transition hover:brightness-110">
+              <Plus size={13} /> New
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
