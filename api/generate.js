@@ -99,7 +99,16 @@ export default async function handler(req, res) {
   const system = isCharSheet
     ? 'You read Dungeons & Dragons 5e character sheets from images and output ONLY valid minified JSON matching the requested shape. No markdown, no code fences, no commentary.'
     : 'You are a Dungeons & Dragons 5e content generator. Respond with ONLY valid minified JSON matching the requested shape. No markdown, no code fences, no commentary.'
-  const userText = isCharSheet ? CHARSHEET_PROMPT : build(params, campaign)
+  // Optional GUIDING PROMPT — free text the user typed to steer the result.
+  // When present it's woven into the model prompt so the output reflects it,
+  // while the structured JSON shape is preserved. When empty, generation is
+  // fully random (unchanged behavior).
+  const guide = (params.prompt ?? params.userPrompt ?? '').toString().trim().slice(0, 600)
+  const baseText = isCharSheet ? CHARSHEET_PROMPT : build(params, campaign)
+  const userText =
+    !isCharSheet && guide
+      ? `${baseText} IMPORTANT — the user wants this to match the following request: "${guide}". Honor this guidance closely while still returning ONLY the exact JSON shape described above.`
+      : baseText
 
   try {
     let text = ''
