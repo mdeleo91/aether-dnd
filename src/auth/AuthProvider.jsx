@@ -28,6 +28,10 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (!isSupabaseConfigured) return
+    // Supabase is configured, so we never use the local demo session. Clear any
+    // stale one left over from a previous demo/unconfigured build so it can't
+    // cause confusion.
+    try { localStorage.removeItem(DEMO_KEY) } catch { /* ignore */ }
     let mounted = true
     supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return
@@ -81,9 +85,11 @@ export function AuthProvider({ children }) {
   }
 
   async function signInWithGoogle() {
+    // Google sign-in is REAL OAuth only — it must never silently drop the user
+    // into a local demo session (that looks broken: "I clicked Google and ended
+    // up in a demo"). If Supabase isn't configured, surface a clear error.
     if (!isSupabaseConfigured) {
-      setDemo(demoUser('google-user@demo.aether', 'dm'))
-      return { demo: true }
+      return { error: { message: 'Google sign-in isn’t available in demo mode — Supabase isn’t configured for this deployment.' } }
     }
     return supabase.auth.signInWithOAuth({
       provider: 'google',
