@@ -23,19 +23,37 @@ export default function Canvas({ cards, setCards, zoom = 1, setZoom, offset, set
   const drag = useRef(null)
   const surfaceRef = useRef(null)
 
-  // Ctrl + wheel to zoom (native, non-passive so we can preventDefault).
+  // Keep latest zoom/offset in refs so the (once-bound) wheel listener can read
+  // fresh values without re-binding on every pan.
+  const zoomRef = useRef(zoom)
+  const offsetRef = useRef(offset)
+  zoomRef.current = zoom
+  offsetRef.current = offset
+
+  // Ctrl + wheel to zoom TOWARD THE CURSOR (native, non-passive so we can
+  // preventDefault). The world point under the pointer stays under the pointer
+  // by compensating the pan offset for the scale change.
   useEffect(() => {
     const el = surfaceRef.current
-    if (!el || !setZoom) return
+    if (!el || !setZoom || !setOffset) return
     const onWheel = (e) => {
       if (!e.ctrlKey) return
       e.preventDefault()
+      const z = zoomRef.current
       const delta = e.deltaY > 0 ? -0.1 : 0.1
-      setZoom((z) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, +(z + delta).toFixed(2))))
+      const nz = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, +(z + delta).toFixed(2)))
+      if (nz === z) return
+      const rect = el.getBoundingClientRect()
+      const cx = e.clientX - rect.left
+      const cy = e.clientY - rect.top
+      const o = offsetRef.current
+      const k = nz / z // scale ratio; offset' keeps (cx,cy) fixed in world space
+      setOffset({ x: cx - k * (cx - o.x), y: cy - k * (cy - o.y) })
+      setZoom(nz)
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
-  }, [setZoom])
+  }, [setZoom, setOffset])
 
   const removeCard = (id) => setCards((cs) => cs.filter((c) => c.id !== id))
   const toggleMin = (id) => setCards((cs) => cs.map((c) => (c.id === id ? { ...c, min: !c.min } : c)))
