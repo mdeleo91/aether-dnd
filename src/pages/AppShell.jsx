@@ -72,9 +72,11 @@ export default function AppShell() {
   const [isFs, setIsFs] = useState(false)
   const [palette, setPalette] = useState(false)
   const shellRef = useRef(null)
+  const mainRef = useRef(null)
 
   const currentId = index.currentId
   const cards = campaign.cards
+  const openTypes = new Set(cards.map((c) => c.type))
   const player = campaign.player || { on: false, pushed: null }
   const dmName = user?.user_metadata?.name || (user?.email ? user.email.split('@')[0] : 'Dungeon Master')
   const currentName = index.campaigns.find((c) => c.id === currentId)?.name || campaign.name || 'Campaign'
@@ -123,6 +125,31 @@ export default function AppShell() {
       return [...cs.slice(0, idx), ...cs.slice(idx + 1), c]
     })
     setPalette(false)
+  }
+
+  // Is at least part of a card within the canvas viewport (accounting for pan/zoom)?
+  const isCardVisible = (card) => {
+    const el = mainRef.current
+    if (!el) return true
+    const vw = el.clientWidth
+    const vh = el.clientHeight
+    const sx = offset.x + card.x * zoom
+    const sy = offset.y + card.y * zoom
+    const sw = (card.w || 300) * zoom
+    const sh = (card.h || 240) * zoom
+    const m = 24 // require a bit more than an edge sliver to count as "visible"
+    return sx < vw - m && sx + sw > m && sy < vh - m && sy + sh > m
+  }
+
+  // Sidebar tools toggle a SINGLE instance:
+  //  - not on canvas      -> open it
+  //  - open & visible     -> close it (toggle off)
+  //  - minimized/off-screen -> bring it to focus (don't duplicate, don't lose it)
+  const toggleTool = (type, w) => {
+    const existing = cards.find((c) => c.type === type)
+    if (!existing) { spawn(type, w); return }
+    if (existing.min || !isCardVisible(existing)) { focusCard(existing.id); return }
+    setCards((cs) => cs.filter((c) => c.id !== existing.id))
   }
 
   // ---- campaign-level state (party + libraries), passed to cards as `lib` --
@@ -262,14 +289,29 @@ export default function AppShell() {
       <div className="flex min-h-0 flex-1">
         {/* LEFT RAIL */}
         <aside className="flex w-16 shrink-0 flex-col items-center gap-1 overflow-y-auto border-r border-white/5 bg-ink-800/60 py-3 lg:w-48 lg:items-stretch lg:px-3">
-          <p className="hidden px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-white/35 lg:block">Add to canvas</p>
-          {tools.map((t) => (
-            <button key={t.type} onClick={() => spawn(t.type, t.w)} title={`Add ${t.label}`} className="group flex items-center gap-3 rounded-lg p-2.5 text-white/60 transition hover:bg-white/5 hover:text-white lg:px-3">
-              <t.icon size={18} className="shrink-0" />
-              <span className="hidden text-sm lg:block">{t.label}</span>
-              <Plus size={14} className="ml-auto hidden text-white/30 group-hover:text-amethyst-200 lg:block" />
-            </button>
-          ))}
+          <p className="hidden px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-white/35 lg:block">Tools</p>
+          {tools.map((t) => {
+            const open = openTypes.has(t.type)
+            return (
+              <button
+                key={t.type}
+                onClick={() => toggleTool(t.type, t.w)}
+                title={open ? `${t.label} is open — click to close` : `Add ${t.label}`}
+                aria-pressed={open}
+                className={`group flex items-center gap-3 rounded-lg p-2.5 transition lg:px-3 ${
+                  open ? 'bg-amethyst-400/15 text-amethyst-100 ring-1 ring-inset ring-amethyst-400/30' : 'text-white/60 hover:bg-white/5 hover:text-white'
+                }`}
+              >
+                <t.icon size={18} className="shrink-0" />
+                <span className="hidden text-sm lg:block">{t.label}</span>
+                {open ? (
+                  <span className="ml-auto hidden h-1.5 w-1.5 rounded-full bg-amethyst-300 lg:block" title="On canvas" />
+                ) : (
+                  <Plus size={14} className="ml-auto hidden text-white/30 group-hover:text-amethyst-200 lg:block" />
+                )}
+              </button>
+            )
+          })}
           <div className="mx-2 my-2 h-px bg-white/5" />
           <a href="/join" target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-lg p-2.5 text-white/60 transition hover:bg-white/5 hover:text-white lg:px-3">
             <Globe size={18} /> <span className="hidden text-sm lg:block">Player link</span>
@@ -283,7 +325,7 @@ export default function AppShell() {
         </aside>
 
         {/* CANVAS */}
-        <main className="relative min-w-0 flex-1">
+        <main ref={mainRef} className="relative min-w-0 flex-1">
           <Canvas cards={cards} setCards={setCards} zoom={zoom} setZoom={setZoom} offset={offset} setOffset={setOffset} onData={onData} onPush={pushToPlayer} lib={lib} />
 
           <div className="absolute right-4 top-4 z-10 flex flex-col overflow-hidden rounded-lg border border-white/10 bg-ink-800/80 backdrop-blur">
