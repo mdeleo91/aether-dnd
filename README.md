@@ -1,4 +1,4 @@
-# Project AETHER
+# Project AETHER 
 
 An **AI co-Dungeon Master for Dungeons & Dragons 5e** — an infinite-canvas DM command
 center with an AI co-DM, CR-balanced encounters, 5e statblocks, magic items, and SRD
