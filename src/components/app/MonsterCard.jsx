@@ -6,22 +6,28 @@ import {
   fromAiMonster, profBonusForCR, xpForCR,
 } from '../../app/monster.js'
 import { Spinner, GenError } from './NpcCard.jsx'
-import { Skull, Sparkles, Check, Plus, X, Search } from '../Icons.jsx'
+import { Skull, Dragon, Sparkles, Check, Plus, X, Search } from '../Icons.jsx'
+import { useConfirm } from './ConfirmDialog.jsx'
 
-// The Enemy/Monster tool: a Monster-Manual stat block with two ways to fill it —
-// (1) search the SRD via the open5e API, (2) AI-generate a custom monster — then
-// edit it and save it to the campaign Bestiary.
+// The Enemies tool. SRD monsters are NATIVE (always searchable via the open5e
+// SRD API) and are NOT saved. Custom monsters are AI-generated, editable, and
+// can be saved to this campaign's custom enemies list (which the Custom tab and
+// the Library show).
 export default function MonsterCard({ card, onData, lib }) {
   const monster = card.data?.monster ? normalizeMonster(card.data.monster) : null
-  const mode = card.data?.mode || 'search'
+  const source = card.data?.monsterSource || 'srd' // 'srd' (native) | 'custom'
+  const mode = card.data?.mode || 'srd'
   const setMode = (m) => onData(card.id, { mode: m })
   const [saved, setSaved] = useState(false)
 
-  const setMonster = (m) => onData(card.id, { monster: m })
+  const setMonster = (m) => onData(card.id, { monster: m })                       // edit in place (keeps source)
+  const loadSrd = (m) => onData(card.id, { monster: m, monsterSource: 'srd' })
+  const loadCustom = (m) => onData(card.id, { monster: m, monsterSource: 'custom' })
   const clear = () => onData(card.id, { monster: null })
-  const saveToBestiary = () => {
+  const saveCustom = () => {
     if (!monster) return
     lib?.saveMonsterToBestiary?.(monster)
+    onData(card.id, { monsterSource: 'custom' })
     setSaved(true)
     setTimeout(() => setSaved(false), 1800)
   }
@@ -29,11 +35,15 @@ export default function MonsterCard({ card, onData, lib }) {
   if (monster) {
     return (
       <div>
-        <div className="mb-2 flex items-center justify-end gap-1">
-          <button onClick={clear} title="Back to search / generate" className="rounded-md border border-white/15 px-2 py-0.5 text-[10px] text-white/60 hover:text-white">← New</button>
-          <button onClick={saveToBestiary} title="Save to this campaign's Bestiary" className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] transition ${saved ? 'border-emerald-400/40 text-emerald-300' : 'border-white/15 text-white/60 hover:text-white'}`}>
-            {saved ? <><Check size={10} /> Saved</> : '★ Save to Bestiary'}
-          </button>
+        <div className="mb-2 flex items-center justify-between gap-1">
+          <button onClick={clear} title="Back to search / generate" className="rounded-md border border-white/15 px-2 py-0.5 text-[10px] text-white/60 hover:text-white">← Back</button>
+          {source === 'custom' ? (
+            <button onClick={saveCustom} title="Save to this campaign's custom enemies" className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] transition ${saved ? 'border-emerald-400/40 text-emerald-300' : 'border-white/15 text-white/60 hover:text-white'}`}>
+              {saved ? <><Check size={10} /> Saved</> : '★ Save'}
+            </button>
+          ) : (
+            <span title="SRD monsters are native — always available by search" className="rounded-md border border-rune-300/30 px-2 py-0.5 text-[10px] text-rune-200/80">SRD · native</span>
+          )}
         </div>
         <StatBlock monster={monster} onChange={setMonster} />
       </div>
@@ -43,12 +53,12 @@ export default function MonsterCard({ card, onData, lib }) {
   return (
     <div>
       <div className="mb-2 flex items-center gap-1 rounded-lg border border-white/10 bg-ink-800/60 p-0.5 text-[11px]">
-        <ModeBtn active={mode === 'search'} onClick={() => setMode('search')}>SRD search</ModeBtn>
-        <ModeBtn active={mode === 'ai'} onClick={() => setMode('ai')}>AI custom</ModeBtn>
+        <ModeBtn active={mode === 'srd'} onClick={() => setMode('srd')}>SRD</ModeBtn>
+        <ModeBtn active={mode === 'custom'} onClick={() => setMode('custom')}>Custom</ModeBtn>
       </div>
-      {mode === 'search'
-        ? <SearchMode card={card} onData={onData} onLoad={setMonster} />
-        : <AiMode card={card} onData={onData} onLoad={setMonster} />}
+      {mode === 'srd'
+        ? <SearchMode card={card} onData={onData} onLoad={loadSrd} />
+        : <CustomMode card={card} onData={onData} lib={lib} onLoad={loadCustom} />}
     </div>
   )
 }
@@ -118,7 +128,7 @@ function SearchMode({ card, onData, onLoad }) {
           </button>
         ))}
         {!results.length && !err && !busy && (
-          <p className="px-1 py-6 text-center text-[11px] leading-relaxed text-white/40">Search the SRD bestiary by name, CR, or creature type. Open a result to drop a stat block here, then save it to your Bestiary.</p>
+          <p className="px-1 py-6 text-center text-[11px] leading-relaxed text-white/40">Search the native SRD Monster Manual by name, CR, or creature type. Open a result to view its full stat block — SRD monsters are always available, no saving needed.</p>
         )}
       </div>
     </div>
@@ -162,6 +172,39 @@ function AiMode({ card, onData, onLoad }) {
       <button onClick={generate} disabled={busy} className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-aether-300 to-amethyst-400 px-3.5 py-2 text-xs font-semibold text-ink-900 transition hover:brightness-110 disabled:opacity-50">
         {busy ? <Spinner size={14} /> : <Sparkles size={14} />} {busy ? 'Conjuring…' : 'Generate custom monster'}
       </button>
+    </div>
+  )
+}
+
+// ---------- CUSTOM MODE: AI generator + saved custom enemies list ----------
+function CustomMode({ card, onData, lib, onLoad }) {
+  const saved = lib?.monsterLibrary || []
+  const confirm = useConfirm()
+  return (
+    <div className="space-y-3">
+      <AiMode card={card} onData={onData} onLoad={onLoad} />
+      <div>
+        <p className="mb-1 flex items-center gap-1 px-0.5 text-[9px] font-semibold uppercase tracking-wider text-rune-200/80">
+          <Dragon size={10} /> Saved custom enemies · {saved.length}
+        </p>
+        {saved.length === 0 ? (
+          <p className="px-1 py-3 text-center text-[11px] leading-relaxed text-white/40">No custom enemies yet. Generate one above and hit <span className="text-rune-200">★ Save</span>.</p>
+        ) : (
+          <div className="max-h-[200px] space-y-1 overflow-auto pr-1">
+            {saved.map((row) => (
+              <div key={row.id} className="flex items-center gap-2 rounded-lg border border-white/5 bg-white/[0.02] px-2.5 py-1.5">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-rune-400/20 text-rune-100"><Dragon size={13} /></span>
+                <button onClick={() => onLoad(normalizeMonster(row.monster))} className="min-w-0 flex-1 text-left">
+                  <p className="truncate text-xs font-medium text-white/85">{row.monster?.name || 'Monster'}</p>
+                  <p className="truncate text-[10px] text-white/45">{[row.monster?.size, row.monster?.type, row.monster?.cr ? `CR ${row.monster.cr}` : null].filter(Boolean).join(' · ')}</p>
+                </button>
+                <button onClick={() => onLoad(normalizeMonster(row.monster))} className="shrink-0 text-[10px] text-rune-200">Open →</button>
+                <button onClick={async () => { if (await confirm({ title: 'Remove enemy?', body: `Remove “${row.monster?.name || 'this enemy'}” from your custom enemies? This can't be undone.`, confirmLabel: 'Remove' })) lib.removeMonsterFromBestiary(row.id) }} title="Remove" className="shrink-0 text-white/30 hover:text-red-300"><X size={12} /></button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

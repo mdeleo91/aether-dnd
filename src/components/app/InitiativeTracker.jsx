@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { newId, rollInitiative } from '../../app/generators.js'
 import { aiGenerate } from '../../lib/ai.js'
+import { searchSrdMonsters, fetchDnd5eApiMonster } from '../../lib/srd.js'
 import { normalizeMember, initiativeValue, num } from '../../app/dnd5e.js'
-import { abilityMod as monAbilityMod } from '../../app/monster.js'
-import { Heart, Shield, Skull, Dragon, ChevronRight, Plus, Sparkles, Users, Book, X, Check } from '../Icons.jsx'
+import { abilityMod as monAbilityMod, normalizeMonster, fromSrdMonster, fromDnd5eApiMonster } from '../../app/monster.js'
+import { Heart, Shield, Skull, Dragon, ChevronRight, Plus, Sparkles, Users, Book, Search, X, Check } from '../Icons.jsx'
 import { useConfirm } from './ConfirmDialog.jsx'
 
 // Parse a signed/loose modifier string ("+2", "-1", "3") to a number.
@@ -31,7 +32,12 @@ export default function InitiativeTracker({ card, onData, party = [], lib }) {
   const [msg, setMsg] = useState('')
   const [condFor, setCondFor] = useState(null) // combatant id whose condition picker is open
   const [libOpen, setLibOpen] = useState(false)
-  const [qty, setQty] = useState({}) // per-bestiary-row quantity
+  const [qty, setQty] = useState({}) // per-row quantity (search results)
+  const [libQuery, setLibQuery] = useState('')
+  const [libResults, setLibResults] = useState([]) // unified SRD + custom results
+  const [libBusy, setLibBusy] = useState(false)
+  const [libErr, setLibErr] = useState('')
+  const [addingId, setAddingId] = useState(null)
   const confirm = useConfirm()
 
   const set = (patch) => onData(card.id, patch)
@@ -124,6 +130,53 @@ export default function InitiativeTracker({ card, onData, party = [], lib }) {
     }
     setList((l) => [...l, ...added])
     setMsg(`Added ${count > 1 ? `${count}× ` : ''}${monster.name}.`)
+  }
+
+  // Unified monster search across the NATIVE SRD list AND saved custom enemies.
+  const searchMonsters = async (e) => {
+    e?.preventDefault?.()
+    const q = libQuery.trim()
+    const ql = q.toLowerCase()
+    setLibBusy(true); setLibErr('')
+    const custom = (monsterLib || [])
+      .filter((row) => !q || (row.monster?.name || '').toLowerCase().includes(ql))
+      .map((row) => ({
+        key: 'c_' + row.id, kind: 'custom', name: row.monster?.name || 'Monster',
+        monster: normalizeMonster(row.monster),
+        meta: [row.monster?.cr ? `CR ${row.monster.cr}` : null, row.monster?.ac ? `AC ${row.monster.ac}` : null, row.monster?.hp ? `HP ${row.monster.hp}` : null].filter(Boolean).join(' · '),
+      }))
+    let srd = []
+    let errMsg = ''
+    if (q) {
+      const res = await searchSrdMonsters(q)
+      if (res.error) errMsg = res.error
+      else srd = (res.results || []).map((r) => ({
+        key: 's_' + (r.slug || r.index || r.name), kind: 'srd', name: r.name, raw: r,
+        meta: [r.size, r.type, r.challenge_rating != null ? `CR ${r.challenge_rating}` : null].filter(Boolean).join(' · '),
+      }))
+    }
+    setLibBusy(false)
+    const all = [...custom, ...srd]
+    setLibResults(all)
+    setLibErr(errMsg || (!all.length ? (q ? 'No monsters matched — try another name.' : 'Type a name to search the SRD and your custom enemies.') : ''))
+  }
+
+  // Add a unified-search result (custom or SRD) into the order, ×N.
+  const addSearchResult = async (r, n) => {
+    setAddingId(r.key)
+    try {
+      let monster = null
+      if (r.kind === 'custom') monster = r.monster
+      else {
+        const raw = r.raw
+        if (raw.armor_class !== undefined || raw.strength !== undefined) monster = fromSrdMonster(raw)
+        else { const full = await fetchDnd5eApiMonster(raw); monster = full ? fromDnd5eApiMonster(full) : null }
+      }
+      if (!monster) { setMsg('Could not load that monster.'); return }
+      addMonsterFromLib(monster, num(n, 1))
+    } finally {
+      setAddingId(null)
+    }
   }
 
   const aiEncounter = async () => {
@@ -220,30 +273,31 @@ export default function InitiativeTracker({ card, onData, party = [], lib }) {
               ))}
             </div>
           )}
-          <p className="mb-1 mt-2 flex items-center gap-1 px-0.5 text-[9px] font-semibold uppercase tracking-wider text-rune-200/80"><Dragon size={10} /> Bestiary</p>
-          {monsterLib.length === 0 ? (
-            <p className="px-1 pb-0.5 text-[10px] text-white/35">No saved monsters. Save one from a Monster / Enemy card.</p>
-          ) : (
-            <div className="space-y-1">
-              {monsterLib.map((row) => {
-                const q = qty[row.id] ?? 1
-                return (
-                  <div key={row.id} className="flex items-center gap-2 rounded border border-white/5 bg-white/[0.02] px-2 py-1">
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-rune-400/20 text-rune-100"><Dragon size={11} /></span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[11px] text-white/85">{row.monster?.name || 'Monster'}</p>
-                      <p className="truncate text-[9px] text-white/40">{[row.monster?.cr ? `CR ${row.monster.cr}` : null, row.monster?.ac ? `AC ${row.monster.ac}` : null, row.monster?.hp ? `HP ${row.monster.hp}` : null].filter(Boolean).join(' · ')}</p>
-                    </div>
-                    <span className="flex shrink-0 items-center gap-0.5">
-                      <span className="text-[9px] text-white/30">×</span>
-                      <input value={q} onChange={(e) => setQty((m) => ({ ...m, [row.id]: e.target.value.replace(/[^0-9]/g, '') }))} className="w-7 rounded bg-white/5 px-1 py-0.5 text-center font-mono text-[10px] text-white/85 outline-none" />
-                    </span>
-                    <button onClick={() => addMonsterFromLib(row.monster, num(q, 1))} className="shrink-0 rounded bg-rune-400/25 px-2 py-0.5 text-[10px] font-semibold text-rune-100 hover:bg-rune-400/35">Add</button>
+          <p className="mb-1 mt-2 flex items-center gap-1 px-0.5 text-[9px] font-semibold uppercase tracking-wider text-rune-200/80"><Dragon size={10} /> Monsters · SRD + custom</p>
+          <form onSubmit={searchMonsters} className="flex items-center gap-1.5">
+            <input value={libQuery} onChange={(e) => setLibQuery(e.target.value)} placeholder="Search SRD + your custom enemies (e.g. goblin)" className="min-w-0 flex-1 rounded-md border border-white/10 bg-ink-700 px-2 py-1 text-[11px] text-white placeholder:text-white/30 outline-none focus:border-rune-300/50" />
+            <button type="submit" disabled={libBusy} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-rune-400/25 text-rune-100 hover:bg-rune-400/35 disabled:opacity-50">{libBusy ? <span className="text-[11px]">…</span> : <Search size={13} />}</button>
+          </form>
+          {libErr && <p className="px-1 pt-1 text-[10px] text-white/45">{libErr}</p>}
+          <div className="mt-1 max-h-[220px] space-y-1 overflow-auto pr-1">
+            {libResults.map((r) => {
+              const q = qty[r.key] ?? 1
+              return (
+                <div key={r.key} className="flex items-center gap-2 rounded border border-white/5 bg-white/[0.02] px-2 py-1">
+                  <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded ${r.kind === 'custom' ? 'bg-rune-400/25 text-rune-100' : 'bg-white/10 text-white/55'}`}><Dragon size={11} /></span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[11px] text-white/85">{r.name} <span className={`text-[8px] ${r.kind === 'custom' ? 'text-rune-200' : 'text-white/35'}`}>· {r.kind === 'custom' ? 'custom' : 'SRD'}</span></p>
+                    <p className="truncate text-[9px] text-white/40">{r.meta}</p>
                   </div>
-                )
-              })}
-            </div>
-          )}
+                  <span className="flex shrink-0 items-center gap-0.5">
+                    <span className="text-[9px] text-white/30">×</span>
+                    <input value={q} onChange={(e) => setQty((m) => ({ ...m, [r.key]: e.target.value.replace(/[^0-9]/g, '') }))} className="w-7 rounded bg-white/5 px-1 py-0.5 text-center font-mono text-[10px] text-white/85 outline-none" />
+                  </span>
+                  <button onClick={() => addSearchResult(r, q)} disabled={addingId === r.key} className="shrink-0 rounded bg-rune-400/25 px-2 py-0.5 text-[10px] font-semibold text-rune-100 hover:bg-rune-400/35 disabled:opacity-50">{addingId === r.key ? '…' : 'Add'}</button>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 

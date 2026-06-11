@@ -18,7 +18,7 @@ export default function LibraryCard({ lib }) {
     <div className="flex h-full flex-col">
       <div className="flex gap-1 border-b border-white/5 pb-2">
         <Tab active={tab === 'npc'} onClick={() => setTab('npc')} icon={Skull}>NPCs · {npcs.length}</Tab>
-        <Tab active={tab === 'monster'} onClick={() => setTab('monster')} icon={Dragon}>Bestiary · {monsters.length}</Tab>
+        <Tab active={tab === 'monster'} onClick={() => setTab('monster')} icon={Dragon}>Custom · {monsters.length}</Tab>
         <Tab active={tab === 'loc'} onClick={() => setTab('loc')} icon={MapPin}>Locations · {locs.length}</Tab>
       </div>
 
@@ -41,7 +41,7 @@ export default function LibraryCard({ lib }) {
 
         {tab === 'monster' && (
           monsters.length === 0 ? (
-            <Empty>No monsters in the Bestiary yet. On a <span className="text-rune-200">Monster / Enemy</span> card, search the SRD or AI-generate one and hit <span className="text-rune-200">★ Save to Bestiary</span>.</Empty>
+            <Empty>No custom enemies yet. On the <span className="text-rune-200">Enemies</span> card's <span className="text-rune-200">Custom</span> tab, AI-generate a monster and hit <span className="text-rune-200">★ Save</span>. (SRD monsters are native — search them, no saving needed.)</Empty>
           ) : (
             monsters.map((row) => (
               <Row
