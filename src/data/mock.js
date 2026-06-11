@@ -53,12 +53,14 @@ export const suggestionChips = [
   'Recap last session',
 ]
 
+// Example "campaign memory" cards shown in the co-DM panel. Intentionally generic
+// placeholders — the app does not assume any particular setting.
 export const memoryFacts = [
-  { tag: 'NPC', text: 'Mayor Edda owes the party a favor after they stopped the bridge fire (Session 7).' },
-  { tag: 'Quest', text: 'The Drowned Choir cult seeks the three Tide Bells to summon a Kraken. Party holds one.' },
-  { tag: 'PC', text: 'Kaelen (Paladin) swore the Oath of Vengeance to avenge his drowned sister.' },
-  { tag: 'World', text: 'Hollowmere floods at every new moon — next one in 3 in-game days.' },
-  { tag: 'Loot', text: 'Unidentified coral ring from the vault — pending Identify (suspected cursed).' },
+  { tag: 'NPC', text: 'A local official owes the party a favor after they resolved a recent crisis.' },
+  { tag: 'Quest', text: 'The party is tracking a faction that wants an artifact they currently hold.' },
+  { tag: 'PC', text: 'One PC has a personal oath or vendetta driving their choices.' },
+  { tag: 'World', text: 'A recurring regional event is coming up in a few in-game days.' },
+  { tag: 'Loot', text: 'An unidentified magic item is pending an Identify (possibly cursed).' },
 ]
 
 export const shopItems = [
