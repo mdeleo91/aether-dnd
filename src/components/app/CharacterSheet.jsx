@@ -3,13 +3,21 @@ import {
   abilityMod, fmtMod, getProfBonus, saveTotal, skillTotal, passivePerception, initiativeValue,
   normalizeMember, profBonusForLevel,
 } from '../../app/dnd5e.js'
-import { ChevronRight, X, Plus, Sparkles } from '../Icons.jsx'
+import { ChevronRight, X, Plus } from '../Icons.jsx'
 
 const PAGES = ['Core', 'Details', 'Spells']
 
-// Full, editable 5e character sheet — laid out as the official three pages with
-// a page navigator. Reads a normalized copy of the member and writes patches
-// back through lib.updatePartyMember (so old/partial members upgrade in place).
+// Parchment surface for the sheet body — aged ivory with a soft inset glow so it
+// reads like a real character sheet lying on the DM's desk inside the app window.
+const SHEET_STYLE = {
+  background:
+    'radial-gradient(135% 120% at 50% -10%, #f8f1da 0%, #f1e7c8 50%, #e8dab4 100%)',
+  boxShadow: 'inset 0 0 44px rgba(120,96,50,0.18), inset 0 0 1px rgba(80,60,28,0.4)',
+}
+
+// Full, editable 5e character sheet — laid out as the official three pages, styled
+// to mirror the recognizable boxed Wizards sheet. Reads a normalized copy of the
+// member and writes patches back through lib.updatePartyMember.
 export default function CharacterSheet({ member, lib, onBack }) {
   const c = normalizeMember(member)
   const set = (patch) => lib.updatePartyMember(c.id, patch)
@@ -31,13 +39,13 @@ export default function CharacterSheet({ member, lib, onBack }) {
   const editSpellLevel = (lvl, text) => set({ spellsByLevel: { ...c.spellsByLevel, [lvl]: text } })
 
   return (
-    <div className="space-y-3 text-white/85">
-      {/* Header + page navigator */}
-      <div className="flex items-center gap-2">
+    <div className="space-y-2.5">
+      {/* ---- app chrome: roster / name / delete + page navigator (kept dark) ---- */}
+      <div className="flex items-center gap-2 text-white/85">
         <button onClick={onBack} title="Back to roster" className="inline-flex shrink-0 items-center gap-1 rounded-md border border-white/10 px-2 py-1 text-[11px] text-white/65 transition hover:text-white">
           <ChevronRight size={12} className="rotate-180" /> Roster
         </button>
-        <input value={c.name} onChange={(e) => set({ name: e.target.value })} className="min-w-0 flex-1 rounded bg-transparent font-display text-lg text-white outline-none focus:bg-white/5" />
+        <input value={c.name} onChange={(e) => set({ name: e.target.value })} placeholder="Character name" className="min-w-0 flex-1 rounded bg-transparent font-display text-base text-white outline-none focus:bg-white/5" />
         <button onClick={() => { lib.removePartyMember(c.id); onBack() }} title="Delete character" className="shrink-0 text-white/30 hover:text-red-300"><X size={14} /></button>
       </div>
       <div className="flex items-center justify-center gap-1.5">
@@ -50,201 +58,277 @@ export default function CharacterSheet({ member, lib, onBack }) {
         <button onClick={() => goPage(page + 1)} disabled={page === 2} className="rounded-md border border-white/10 px-1.5 py-1 text-white/55 transition hover:text-white disabled:opacity-30"><ChevronRight size={13} /></button>
       </div>
 
-      {/* ============================= PAGE 1 — CORE / COMBAT ============================= */}
-      {page === 0 && (
-        <>
-          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
-            <F label="Class & Level" value={c.classes} onChange={(v) => set({ classes: v })} placeholder="Fighter 5" />
-            <F label="Total Level" value={c.level} onChange={(v) => set({ level: num(v, 1) })} numeric />
-            <F label="Race" value={c.race} onChange={(v) => set({ race: v })} />
-            <F label="Background" value={c.background} onChange={(v) => set({ background: v })} />
-            <F label="Alignment" value={c.alignment} onChange={(v) => set({ alignment: v })} />
-            <F label="Player" value={c.playerName} onChange={(v) => set({ playerName: v })} />
-            <F label="XP" value={c.xp} onChange={(v) => set({ xp: v })} />
-            <F label={`Prof. Bonus (auto +${profBonusForLevel(c.level)})`} value={c.profBonusOverride} onChange={(v) => set({ profBonusOverride: v })} placeholder={`+${profBonusForLevel(c.level)}`} />
-            <label className="flex cursor-pointer items-end gap-1.5 pb-1">
-              <input type="checkbox" checked={c.inspiration} onChange={(e) => set({ inspiration: e.target.checked })} className="accent-amethyst-400" />
-              <span className="text-[11px] text-white/70">Inspiration</span>
-            </label>
-          </div>
+      {/* ============================ THE PARCHMENT SHEET ============================ */}
+      <div className="rounded-lg p-2.5" style={SHEET_STYLE}>
+        {/* --------------------------------- PAGE 1 --------------------------------- */}
+        {page === 0 && (
+          <div className="grid grid-cols-12 gap-2">
+            {/* header: name box + identity grid */}
+            <Box className="col-span-12 sm:col-span-4" label="Character Name">
+              <Ink value={c.name} onChange={(v) => set({ name: v })} big className="font-display" />
+            </Box>
+            <div className="col-span-12 grid grid-cols-3 gap-2 sm:col-span-8 sm:grid-cols-3">
+              <FieldBox label="Class & Level" value={c.classes} onChange={(v) => set({ classes: v })} placeholder="Fighter 5" />
+              <FieldBox label="Background" value={c.background} onChange={(v) => set({ background: v })} />
+              <FieldBox label="Player Name" value={c.playerName} onChange={(v) => set({ playerName: v })} />
+              <FieldBox label="Race" value={c.race} onChange={(v) => set({ race: v })} />
+              <FieldBox label="Alignment" value={c.alignment} onChange={(v) => set({ alignment: v })} />
+              <FieldBox label="Experience Points" value={c.xp} onChange={(v) => set({ xp: v })} />
+            </div>
 
-          <Section title="Ability Scores">
-            <div className="grid grid-cols-6 gap-1.5">
+            {/* LEFT STRIP — ability scores */}
+            <div className="col-span-3 space-y-3.5">
               {ABILS.map((k) => (
-                <div key={k} className="rounded-lg border border-white/10 bg-white/[0.03] p-1.5 text-center">
-                  <div className="text-[9px] font-semibold uppercase tracking-wider text-white/40">{k}</div>
-                  <div className="font-mono text-base font-semibold text-white">{fmtMod(abilityMod(c.abilities[k]))}</div>
-                  <input value={c.abilities[k]} onChange={(e) => editAbility(k, e.target.value)} className="mt-0.5 w-full rounded bg-ink-700 text-center font-mono text-[11px] text-white/70 outline-none" />
-                </div>
+                <AbilityBox key={k} k={k} mod={abilityMod(c.abilities[k])} score={c.abilities[k]} onScore={(v) => editAbility(k, v)} />
               ))}
             </div>
-          </Section>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Section title="Saving Throws">
-              <div className="space-y-0.5">
+            {/* MIDDLE — inspiration / prof / saves / skills / passive */}
+            <div className="col-span-5 space-y-2 sm:col-span-4">
+              <div className="grid grid-cols-2 gap-2">
+                <PillBox label="Inspiration">
+                  <button onClick={() => set({ inspiration: !c.inspiration })} className="mx-auto block h-5 w-5 rotate-45 rounded-[3px] border-[1.5px] border-[#6f6044]" style={{ background: c.inspiration ? '#6f6044' : 'transparent' }} />
+                </PillBox>
+                <PillBox label="Proficiency Bonus">
+                  <Ink value={c.profBonusOverride} onChange={(v) => set({ profBonusOverride: v })} center mono className="text-base" placeholder={`+${profBonusForLevel(c.level)}`} />
+                </PillBox>
+              </div>
+              <TitledBox title="Saving Throws">
                 {SAVES.map((a) => (
-                  <Row key={a} active={c.saves[a]} onToggle={() => toggleSave(a)} label={a} total={saveTotal(c, a)} />
+                  <ProfRow key={a} level={c.saves[a] ? 1 : 0} onToggle={() => toggleSave(a)} total={saveTotal(c, a)} label={a} />
                 ))}
-              </div>
-            </Section>
-            <Section title={`Skills · Passive Perception ${passivePerception(c)}`}>
-              <div className="space-y-0.5">
+              </TitledBox>
+              <TitledBox title="Skills">
                 {SKILLS.map((s) => (
-                  <Row key={s.name} level={num(c.skills[s.name], 0)} onToggle={() => cycleSkill(s.name)} label={s.name} sub={s.ability} total={skillTotal(c, s.name)} />
+                  <ProfRow key={s.name} level={num(c.skills[s.name], 0)} onToggle={() => cycleSkill(s.name)} total={skillTotal(c, s.name)} label={s.name} sub={s.ability} />
                 ))}
+              </TitledBox>
+              <div className="flex items-center gap-2 rounded-md border-[1.5px] border-[#9c8a61] bg-[#fbf6e6]/40 px-2 py-1">
+                <span className="flex h-7 w-9 shrink-0 items-center justify-center rounded border-[1.5px] border-[#9c8a61] bg-[#f4ecd5] font-mono text-sm text-[#2c2114]">{passivePerception(c)}</span>
+                <span className="text-[8px] font-semibold uppercase leading-tight tracking-[0.08em] text-[#766440]">Passive Wisdom (Perception)</span>
               </div>
-            </Section>
+            </div>
+
+            {/* RIGHT — combat / attacks */}
+            <div className="col-span-4 space-y-2 sm:col-span-4">
+              <div className="grid grid-cols-3 gap-2">
+                <CenterBox label="Armor Class" value={c.ac} onChange={(v) => set({ ac: v })} />
+                <CenterBox label="Initiative" value={c.initiativeOverride} onChange={(v) => set({ initiativeOverride: v })} placeholder={fmtMod(initiativeValue(c))} />
+                <CenterBox label="Speed" value={c.speed} onChange={(v) => set({ speed: v })} placeholder="30" />
+              </div>
+              <TitledBox title="Hit Points">
+                <div className="grid grid-cols-3 gap-1.5 text-center">
+                  <MiniStat label="Max" value={c.maxHp} onChange={(v) => set({ maxHp: v })} />
+                  <MiniStat label="Current" value={c.hp} onChange={(v) => set({ hp: v })} />
+                  <MiniStat label="Temp" value={c.tempHp} onChange={(v) => set({ tempHp: v })} />
+                </div>
+              </TitledBox>
+              <div className="grid grid-cols-2 gap-2">
+                <TitledBox title="Hit Dice">
+                  <Ink value={c.hitDice} onChange={(v) => set({ hitDice: v })} center mono placeholder="5d10" />
+                </TitledBox>
+                <TitledBox title="Death Saves">
+                  <DeathDots label="Successes" n={c.deathSaves.successes} filled="#3f7d4f" onSet={(v) => setDeath('successes', v)} />
+                  <DeathDots label="Failures" n={c.deathSaves.failures} filled="#9a3b34" onSet={(v) => setDeath('failures', v)} />
+                </TitledBox>
+              </div>
+              <TitledBox title="Attacks & Spellcasting">
+                <AttackTable attacks={c.attacks} editAttack={editAttack} addAttack={addAttack} removeAttack={removeAttack} />
+              </TitledBox>
+            </div>
+
+            {/* BOTTOM — proficiencies / equipment / features / personality */}
+            <TitledBox title="Other Proficiencies & Languages" className="col-span-12 sm:col-span-6">
+              <InkArea value={c.proficienciesLanguages} onChange={(v) => set({ proficienciesLanguages: v })} rows={3} />
+            </TitledBox>
+            <TitledBox title="Equipment" className="col-span-12 sm:col-span-6">
+              <InkArea value={c.equipment} onChange={(v) => set({ equipment: v })} rows={3} />
+            </TitledBox>
+
+            <div className="col-span-12 grid grid-cols-12 gap-2">
+              <div className="col-span-12 space-y-2 sm:col-span-7">
+                <TitledBox title="Personality Traits"><InkArea value={c.personalityTraits} onChange={(v) => set({ personalityTraits: v })} rows={2} /></TitledBox>
+                <TitledBox title="Ideals"><InkArea value={c.ideals} onChange={(v) => set({ ideals: v })} rows={2} /></TitledBox>
+                <TitledBox title="Bonds"><InkArea value={c.bonds} onChange={(v) => set({ bonds: v })} rows={2} /></TitledBox>
+                <TitledBox title="Flaws"><InkArea value={c.flaws} onChange={(v) => set({ flaws: v })} rows={2} /></TitledBox>
+              </div>
+              <TitledBox title="Features & Traits" className="col-span-12 sm:col-span-5">
+                <InkArea value={c.features} onChange={(v) => set({ features: v })} rows={12} />
+              </TitledBox>
+            </div>
           </div>
+        )}
 
-          <Section title="Combat">
-            <div className="grid grid-cols-4 gap-1.5">
-              <Stat label="Armor Class" value={c.ac} onChange={(v) => set({ ac: v })} />
-              <Stat label="Initiative" value={c.initiativeOverride} onChange={(v) => set({ initiativeOverride: v })} placeholder={fmtMod(initiativeValue(c))} />
-              <Stat label="Speed" value={c.speed} onChange={(v) => set({ speed: v })} placeholder="30 ft" />
-              <Stat label="Hit Dice" value={c.hitDice} onChange={(v) => set({ hitDice: v })} placeholder="5d10" />
-              <Stat label="Max HP" value={c.maxHp} onChange={(v) => set({ maxHp: v })} />
-              <Stat label="Current HP" value={c.hp} onChange={(v) => set({ hp: v })} />
-              <Stat label="Temp HP" value={c.tempHp} onChange={(v) => set({ tempHp: v })} />
-              <div className="rounded-lg border border-white/10 bg-white/[0.03] p-1.5">
-                <div className="text-[9px] font-semibold uppercase tracking-wider text-white/40">Death Saves</div>
-                <Dots label="✓" n={c.deathSaves.successes} color="bg-emerald-400" onSet={(v) => setDeath('successes', v)} />
-                <Dots label="✗" n={c.deathSaves.failures} color="bg-red-400" onSet={(v) => setDeath('failures', v)} />
+        {/* --------------------------------- PAGE 2 --------------------------------- */}
+        {page === 1 && (
+          <div className="grid grid-cols-12 gap-2">
+            <TitledBox title="Character Appearance" className="col-span-12 sm:col-span-7">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                <FieldBox label="Age" value={c.age} onChange={(v) => set({ age: v })} />
+                <FieldBox label="Height" value={c.height} onChange={(v) => set({ height: v })} />
+                <FieldBox label="Weight" value={c.weight} onChange={(v) => set({ weight: v })} />
+                <FieldBox label="Eyes" value={c.eyes} onChange={(v) => set({ eyes: v })} />
+                <FieldBox label="Skin" value={c.skin} onChange={(v) => set({ skin: v })} />
+                <FieldBox label="Hair" value={c.hair} onChange={(v) => set({ hair: v })} />
               </div>
-            </div>
-          </Section>
-
-          <Section title="Attacks">
-            <AttackTable attacks={c.attacks} editAttack={editAttack} addAttack={addAttack} removeAttack={removeAttack} />
-          </Section>
-
-          <Section title="Proficiencies, Languages & Equipment">
-            <TextArea label="Other Proficiencies & Languages" value={c.proficienciesLanguages} onChange={(v) => set({ proficienciesLanguages: v })} />
-            <TextArea label="Equipment" value={c.equipment} onChange={(v) => set({ equipment: v })} />
-          </Section>
-
-          <Section title="Features & Personality">
-            <TextArea label="Features & Traits" value={c.features} onChange={(v) => set({ features: v })} rows={3} />
-            <TextArea label="Personality Traits" value={c.personalityTraits} onChange={(v) => set({ personalityTraits: v })} />
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-              <TextArea label="Ideals" value={c.ideals} onChange={(v) => set({ ideals: v })} />
-              <TextArea label="Bonds" value={c.bonds} onChange={(v) => set({ bonds: v })} />
-              <TextArea label="Flaws" value={c.flaws} onChange={(v) => set({ flaws: v })} />
-            </div>
-          </Section>
-        </>
-      )}
-
-      {/* ============================= PAGE 2 — DETAILS / BACKSTORY ============================= */}
-      {page === 1 && (
-        <>
-          <Section title="Character Appearance">
-            <div className="flex gap-2">
+            </TitledBox>
+            <TitledBox title="Character Image" className="col-span-12 sm:col-span-5">
               <Portrait c={c} set={set} />
-              <div className="grid flex-1 grid-cols-2 gap-1.5 sm:grid-cols-3">
-                <F label="Age" value={c.age} onChange={(v) => set({ age: v })} />
-                <F label="Height" value={c.height} onChange={(v) => set({ height: v })} />
-                <F label="Weight" value={c.weight} onChange={(v) => set({ weight: v })} />
-                <F label="Eyes" value={c.eyes} onChange={(v) => set({ eyes: v })} />
-                <F label="Skin" value={c.skin} onChange={(v) => set({ skin: v })} />
-                <F label="Hair" value={c.hair} onChange={(v) => set({ hair: v })} />
-              </div>
-            </div>
-          </Section>
+            </TitledBox>
 
-          <Section title="Character Backstory">
-            <TextArea value={c.backstory} onChange={(v) => set({ backstory: v })} rows={6} placeholder="Where they came from, who they were, what drives them…" />
-          </Section>
+            <TitledBox title="Character Backstory" className="col-span-12">
+              <InkArea value={c.backstory} onChange={(v) => set({ backstory: v })} rows={7} placeholder="Where they came from, who they were, what drives them…" />
+            </TitledBox>
 
-          <Section title="Allies & Organizations">
-            <div className="space-y-1.5">
-              {c.allies.map((a, i) => (
-                <div key={i} className="grid grid-cols-[1fr_2fr_16px] items-center gap-1.5">
-                  <input value={a.name} onChange={(e) => editAlly(i, { name: e.target.value })} placeholder="Name / faction" className="rounded bg-ink-700 px-2 py-1 text-[11px] outline-none" />
-                  <input value={a.notes} onChange={(e) => editAlly(i, { notes: e.target.value })} placeholder="Notes / relationship" className="rounded bg-ink-700 px-2 py-1 text-[11px] outline-none" />
-                  <button onClick={() => removeAlly(i)} className="text-white/25 hover:text-red-300"><X size={11} /></button>
-                </div>
-              ))}
-              <button onClick={addAlly} className="inline-flex items-center gap-1 rounded-md border border-white/10 px-2 py-0.5 text-[10px] text-white/55 hover:text-white"><Plus size={11} /> Add ally / organization</button>
-            </div>
-          </Section>
-
-          <Section title="Additional Features & Traits">
-            <TextArea value={c.additionalFeatures} onChange={(v) => set({ additionalFeatures: v })} rows={4} />
-          </Section>
-
-          <Section title="Treasure">
-            <TextArea value={c.treasure} onChange={(v) => set({ treasure: v })} rows={3} placeholder="Coins, gems, magic items…" />
-          </Section>
-        </>
-      )}
-
-      {/* ============================= PAGE 3 — SPELLS ============================= */}
-      {page === 2 && (
-        <>
-          <Section title="Spellcasting">
-            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-              <F label="Spellcasting Class" value={c.spellClass} onChange={(v) => set({ spellClass: v })} />
-              <F label="Spellcasting Ability" value={c.spellcastingAbility} onChange={(v) => set({ spellcastingAbility: v })} placeholder="WIS" />
-              <F label="Spell Save DC" value={c.spellSaveDC} onChange={(v) => set({ spellSaveDC: v })} />
-              <F label="Spell Atk Bonus" value={c.spellAtkBonus} onChange={(v) => set({ spellAtkBonus: v })} />
-            </div>
-            <div className="mt-2">
-              <div className="mb-1 text-[9px] font-semibold uppercase tracking-wider text-white/40">Spell Slots (total / used)</div>
-              <div className="grid grid-cols-3 gap-1 sm:grid-cols-5">
-                {SPELL_LEVELS.map((lvl) => (
-                  <div key={lvl} className="flex items-center gap-1 rounded bg-white/[0.03] px-1 py-0.5">
-                    <span className="text-[9px] text-white/40">L{lvl}</span>
-                    <input value={c.spellSlots[lvl]?.total ?? ''} onChange={(e) => editSlot(lvl, { total: e.target.value })} className="w-5 rounded bg-ink-700 text-center text-[10px] outline-none" />
-                    <span className="text-white/25">/</span>
-                    <input value={c.spellSlots[lvl]?.used ?? ''} onChange={(e) => editSlot(lvl, { used: e.target.value })} className="w-5 rounded bg-ink-700 text-center text-[10px] outline-none" />
+            <TitledBox title="Allies & Organizations" className="col-span-12 sm:col-span-6">
+              <div className="space-y-1.5">
+                {c.allies.map((a, i) => (
+                  <div key={i} className="grid grid-cols-[1fr_1.4fr_14px] items-center gap-1.5">
+                    <input value={a.name} onChange={(e) => editAlly(i, { name: e.target.value })} placeholder="Name / faction" className="rounded border-[1.5px] border-[#c3b285] bg-[#fbf6e6]/60 px-2 py-1 text-[11px] text-[#2c2114] outline-none placeholder:text-[#a8966a]" />
+                    <input value={a.notes} onChange={(e) => editAlly(i, { notes: e.target.value })} placeholder="Notes / relationship" className="rounded border-[1.5px] border-[#c3b285] bg-[#fbf6e6]/60 px-2 py-1 text-[11px] text-[#2c2114] outline-none placeholder:text-[#a8966a]" />
+                    <button onClick={() => removeAlly(i)} className="text-[#9a3b34]/60 hover:text-[#9a3b34]"><X size={11} /></button>
                   </div>
                 ))}
+                <button onClick={addAlly} className="inline-flex items-center gap-1 rounded border-[1.5px] border-[#c3b285] px-2 py-0.5 text-[10px] text-[#766440] hover:bg-[#fbf6e6]/60"><Plus size={11} /> Add ally / organization</button>
               </div>
+            </TitledBox>
+            <TitledBox title="Additional Features & Traits" className="col-span-12 sm:col-span-6">
+              <InkArea value={c.additionalFeatures} onChange={(v) => set({ additionalFeatures: v })} rows={5} />
+            </TitledBox>
+
+            <TitledBox title="Treasure" className="col-span-12">
+              <InkArea value={c.treasure} onChange={(v) => set({ treasure: v })} rows={3} placeholder="Coins, gems, magic items…" />
+            </TitledBox>
+          </div>
+        )}
+
+        {/* --------------------------------- PAGE 3 --------------------------------- */}
+        {page === 2 && (
+          <div className="grid grid-cols-12 gap-2">
+            <div className="col-span-12 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <FieldBox label="Spellcasting Class" value={c.spellClass} onChange={(v) => set({ spellClass: v })} center />
+              <FieldBox label="Spellcasting Ability" value={c.spellcastingAbility} onChange={(v) => set({ spellcastingAbility: v })} placeholder="WIS" center />
+              <CenterBox label="Spell Save DC" value={c.spellSaveDC} onChange={(v) => set({ spellSaveDC: v })} />
+              <CenterBox label="Spell Atk Bonus" value={c.spellAtkBonus} onChange={(v) => set({ spellAtkBonus: v })} />
             </div>
-          </Section>
 
-          <Section title="Cantrips (Level 0)">
-            <TextArea value={c.cantrips} onChange={(v) => set({ cantrips: v })} placeholder="Sacred Flame, Light, Guidance…" />
-          </Section>
+            <SpellBox className="col-span-12 sm:col-span-4" level={0} title="Cantrips" slot={null}
+              value={c.cantrips} onChange={(v) => set({ cantrips: v })} placeholder="Sacred Flame, Light, Guidance…" />
 
-          <Section title="Spells by Level">
-            <div className="space-y-1.5">
-              {SPELL_LEVELS.map((lvl) => (
-                <div key={lvl}>
-                  <div className="mb-0.5 flex items-center justify-between">
-                    <span className="text-[10px] font-semibold text-amethyst-200">Level {lvl}</span>
-                    <span className="text-[9px] text-white/30">slots {c.spellSlots[lvl]?.total || 0}</span>
-                  </div>
-                  <TextArea value={c.spellsByLevel[lvl]} onChange={(v) => editSpellLevel(lvl, v)} placeholder={`Level ${lvl} spells…`} />
-                </div>
-              ))}
-            </div>
-          </Section>
+            {SPELL_LEVELS.map((lvl) => (
+              <SpellBox key={lvl} className="col-span-12 sm:col-span-4" level={lvl} title={`Level ${lvl}`}
+                slot={c.spellSlots[lvl] || { total: '', used: '' }}
+                onSlot={(patch) => editSlot(lvl, patch)}
+                value={c.spellsByLevel[lvl]} onChange={(v) => editSpellLevel(lvl, v)} placeholder={`Level ${lvl} spells…`} />
+            ))}
 
-          {c.spells ? (
-            <Section title="Other / Unsorted Spells">
-              <TextArea value={c.spells} onChange={(v) => set({ spells: v })} />
-            </Section>
-          ) : null}
-        </>
-      )}
+            {c.spells ? (
+              <TitledBox title="Other / Unsorted Spells" className="col-span-12">
+                <InkArea value={c.spells} onChange={(v) => set({ spells: v })} rows={2} />
+              </TitledBox>
+            ) : null}
+          </div>
+        )}
+      </div>
 
-      <p className="pt-1 text-[9px] text-white/30">
-        Page {page + 1} of 3 · ✦ modifiers, prof bonus, saves &amp; skills computed automatically · all fields editable · saved to this campaign
+      <p className="pt-0.5 text-center text-[9px] text-white/30">
+        Page {page + 1} of 3 · modifiers, proficiency bonus, saves &amp; skills computed automatically · every field editable · saved to this campaign
       </p>
     </div>
   )
 }
 
-// ---- small building blocks --------------------------------------------------
-function Section({ title, children }) {
+// ---- parchment building blocks ----------------------------------------------
+
+// Bordered box with the uppercase label at the BOTTOM (official-sheet style).
+function TitledBox({ title, children, className = '' }) {
+  return (
+    <div className={`flex flex-col rounded-md border-[1.5px] border-[#9c8a61] bg-[#fbf6e6]/40 ${className}`}>
+      <div className="flex-1 px-2 pt-1.5 pb-1">{children}</div>
+      <div className="border-t border-[#9c8a61]/55 py-[3px] text-center text-[8px] font-semibold uppercase tracking-[0.1em] text-[#766440]">{title}</div>
+    </div>
+  )
+}
+
+// Box with label on top — used for the name + header identity fields.
+function Box({ label, children, className = '' }) {
+  return (
+    <div className={`flex flex-col justify-end rounded-md border-[1.5px] border-[#9c8a61] bg-[#fbf6e6]/40 px-2 pt-1 pb-1 ${className}`}>
+      {children}
+      <div className="mt-0.5 text-[7.5px] font-semibold uppercase tracking-[0.1em] text-[#766440]">{label}</div>
+    </div>
+  )
+}
+
+function FieldBox({ label, value, onChange, placeholder, center }) {
+  return (
+    <div className="rounded-md border-[1.5px] border-[#9c8a61] bg-[#fbf6e6]/40 px-2 pt-1 pb-0.5">
+      <Ink value={value} onChange={onChange} placeholder={placeholder} center={center} />
+      <div className={`text-[7.5px] font-semibold uppercase tracking-[0.08em] text-[#766440] ${center ? 'text-center' : ''}`}>{label}</div>
+    </div>
+  )
+}
+
+// Big centered value box with the label underneath — AC / Initiative / Speed.
+function CenterBox({ label, value, onChange, placeholder }) {
+  return (
+    <div className="rounded-md border-[1.5px] border-[#9c8a61] bg-[#fbf6e6]/40 px-1 pt-1.5 pb-1 text-center">
+      <input value={value ?? ''} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} className="w-full bg-transparent text-center font-mono text-base text-[#2c2114] outline-none placeholder:text-[#a8966a]" />
+      <div className="mt-0.5 text-[7.5px] font-semibold uppercase leading-tight tracking-[0.06em] text-[#766440]">{label}</div>
+    </div>
+  )
+}
+
+function MiniStat({ label, value, onChange }) {
   return (
     <div>
-      <p className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-amethyst-300">
-        <Sparkles size={11} /> {title}
-      </p>
+      <input value={value ?? ''} onChange={(e) => onChange(e.target.value)} className="w-full rounded border-[1.5px] border-[#c3b285] bg-[#fbf6e6]/60 py-0.5 text-center font-mono text-sm text-[#2c2114] outline-none" />
+      <div className="text-[7px] font-semibold uppercase tracking-wide text-[#766440]">{label}</div>
+    </div>
+  )
+}
+
+// Small label-bottom box for Inspiration / Proficiency Bonus.
+function PillBox({ label, children }) {
+  return (
+    <div className="rounded-md border-[1.5px] border-[#9c8a61] bg-[#fbf6e6]/40 px-1 pt-1.5 pb-1">
       {children}
+      <div className="mt-1 text-center text-[7.5px] font-semibold uppercase leading-tight tracking-[0.06em] text-[#766440]">{label}</div>
+    </div>
+  )
+}
+
+// The tall ability-score box: name, big modifier, score pill overlapping the base.
+function AbilityBox({ k, mod, score, onScore }) {
+  return (
+    <div className="relative rounded-md border-[1.5px] border-[#9c8a61] bg-[#fbf6e6]/50 px-1 pt-1.5 pb-4 text-center">
+      <div className="text-[8px] font-bold uppercase tracking-wide text-[#766440]">{k}</div>
+      <div className="font-mono text-xl font-semibold leading-tight text-[#2c2114]">{fmtMod(mod)}</div>
+      <input value={score ?? ''} onChange={(e) => onScore(e.target.value)} className="absolute -bottom-2.5 left-1/2 h-5 w-9 -translate-x-1/2 rounded-full border-[1.5px] border-[#9c8a61] bg-[#f4ecd5] text-center font-mono text-[11px] text-[#2c2114] outline-none" />
+    </div>
+  )
+}
+
+// Proficiency dot + modifier + label — saving throws (0/1) and skills (0/1/2).
+function ProfRow({ level, onToggle, total, label, sub }) {
+  return (
+    <button onClick={onToggle} className="flex w-full items-center gap-1.5 rounded px-0.5 py-[1px] text-left transition hover:bg-[#e7d9b4]/40">
+      <span className="flex h-3 w-3 shrink-0 items-center justify-center rounded-full border-[1.5px] border-[#6f6044]" style={{ background: level >= 1 ? '#6f6044' : 'transparent' }}>
+        {level === 2 ? <span className="text-[6px] leading-none text-[#f4ecd5]">★</span> : null}
+      </span>
+      <span className="w-6 shrink-0 text-right font-mono text-[11px] text-[#2c2114]">{fmtMod(total)}</span>
+      <span className="min-w-0 flex-1 truncate text-[11px] text-[#3a2f1f]">{label}{sub ? <span className="text-[#9a865c]"> ({sub})</span> : null}</span>
+    </button>
+  )
+}
+
+function DeathDots({ label, n, filled, onSet }) {
+  return (
+    <div className="flex items-center gap-1.5 py-px">
+      <span className="w-12 shrink-0 text-[7px] font-semibold uppercase tracking-wide text-[#766440]">{label}</span>
+      {[1, 2, 3].map((i) => (
+        <button key={i} onClick={() => onSet(n >= i ? i - 1 : i)} className="h-2.5 w-2.5 rounded-full border-[1.5px] border-[#6f6044]" style={{ background: n >= i ? filled : 'transparent' }} />
+      ))}
     </div>
   )
 }
@@ -252,96 +336,79 @@ function Section({ title, children }) {
 function AttackTable({ attacks, editAttack, addAttack, removeAttack }) {
   return (
     <div className="space-y-1">
-      <div className="grid grid-cols-[1fr_46px_1fr_16px] gap-1 px-1 text-[8px] uppercase tracking-wider text-white/35">
-        <span>Name</span><span>Atk</span><span>Damage/Type</span><span />
+      <div className="grid grid-cols-[1fr_38px_1fr_14px] gap-1 px-0.5 text-[7px] font-semibold uppercase tracking-wide text-[#766440]">
+        <span>Name</span><span className="text-center">Atk</span><span>Damage / Type</span><span />
       </div>
       {attacks.map((a, i) => (
-        <div key={i} className="grid grid-cols-[1fr_46px_1fr_16px] items-center gap-1">
-          <input value={a.name} onChange={(e) => editAttack(i, { name: e.target.value })} placeholder="Longsword" className="rounded bg-ink-700 px-1.5 py-1 text-[11px] outline-none" />
-          <input value={a.atk} onChange={(e) => editAttack(i, { atk: e.target.value })} placeholder="+7" className="rounded bg-ink-700 px-1 py-1 text-center text-[11px] outline-none" />
-          <input value={a.damage} onChange={(e) => editAttack(i, { damage: e.target.value })} placeholder="1d8+4 slashing" className="rounded bg-ink-700 px-1.5 py-1 text-[11px] outline-none" />
-          <button onClick={() => removeAttack(i)} className="text-white/25 hover:text-red-300"><X size={11} /></button>
+        <div key={i} className="grid grid-cols-[1fr_38px_1fr_14px] items-center gap-1">
+          <input value={a.name} onChange={(e) => editAttack(i, { name: e.target.value })} placeholder="Longsword" className="rounded border-[1.5px] border-[#c3b285] bg-[#fbf6e6]/60 px-1.5 py-0.5 text-[11px] text-[#2c2114] outline-none placeholder:text-[#a8966a]" />
+          <input value={a.atk} onChange={(e) => editAttack(i, { atk: e.target.value })} placeholder="+7" className="rounded border-[1.5px] border-[#c3b285] bg-[#fbf6e6]/60 px-0.5 py-0.5 text-center text-[11px] text-[#2c2114] outline-none placeholder:text-[#a8966a]" />
+          <input value={a.damage} onChange={(e) => editAttack(i, { damage: e.target.value })} placeholder="1d8+4 slashing" className="rounded border-[1.5px] border-[#c3b285] bg-[#fbf6e6]/60 px-1.5 py-0.5 text-[11px] text-[#2c2114] outline-none placeholder:text-[#a8966a]" />
+          <button onClick={() => removeAttack(i)} className="text-[#9a3b34]/60 hover:text-[#9a3b34]"><X size={11} /></button>
         </div>
       ))}
-      <button onClick={addAttack} className="inline-flex items-center gap-1 rounded-md border border-white/10 px-2 py-0.5 text-[10px] text-white/55 hover:text-white"><Plus size={11} /> Add attack</button>
+      <button onClick={addAttack} className="inline-flex items-center gap-1 rounded border-[1.5px] border-[#c3b285] px-2 py-0.5 text-[10px] text-[#766440] hover:bg-[#fbf6e6]/60"><Plus size={11} /> Add attack</button>
+    </div>
+  )
+}
+
+// A spell-level cell: header with the level name + total/expended slot boxes,
+// then the list of spells for that level. Cantrips pass slot={null}.
+function SpellBox({ level, title, slot, onSlot, value, onChange, placeholder, className = '' }) {
+  return (
+    <div className={`flex flex-col rounded-md border-[1.5px] border-[#9c8a61] bg-[#fbf6e6]/40 ${className}`}>
+      <div className="flex items-center justify-between gap-1 border-b border-[#9c8a61]/55 px-2 py-1">
+        <span className="flex h-5 w-5 items-center justify-center rounded-full border-[1.5px] border-[#9c8a61] bg-[#f4ecd5] font-mono text-[11px] font-semibold text-[#2c2114]">{level}</span>
+        <span className="flex-1 text-[8px] font-semibold uppercase tracking-[0.08em] text-[#766440]">{title}</span>
+        {slot ? (
+          <span className="flex items-center gap-1">
+            <input value={slot.total ?? ''} onChange={(e) => onSlot({ total: e.target.value })} title="Total slots" className="h-5 w-6 rounded border-[1.5px] border-[#c3b285] bg-[#fbf6e6]/60 text-center font-mono text-[10px] text-[#2c2114] outline-none" />
+            <span className="text-[8px] text-[#9a865c]">/</span>
+            <input value={slot.used ?? ''} onChange={(e) => onSlot({ used: e.target.value })} title="Expended" className="h-5 w-6 rounded border-[1.5px] border-[#c3b285] bg-[#fbf6e6]/60 text-center font-mono text-[10px] text-[#2c2114] outline-none" />
+          </span>
+        ) : null}
+      </div>
+      <textarea rows={3} value={value ?? ''} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} className="m-1 resize-none bg-transparent px-1 text-[11px] leading-snug text-[#2c2114] outline-none placeholder:italic placeholder:text-[#a8966a]" />
     </div>
   )
 }
 
 function Portrait({ c, set }) {
   return (
-    <div className="shrink-0">
-      <div className="flex h-[88px] w-[72px] items-center justify-center overflow-hidden rounded-lg border border-white/10 bg-gradient-to-br from-aether-500/30 to-amethyst-500/30">
+    <div className="flex flex-col items-center gap-1.5">
+      <div className="flex h-28 w-full items-center justify-center overflow-hidden rounded border-[1.5px] border-[#c3b285] bg-[#f4ecd5]">
         {c.portrait ? (
           <img src={c.portrait} alt="" className="h-full w-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none' }} />
         ) : (
-          <span className="font-display text-2xl text-white/80">{(c.name || '?').trim().charAt(0).toUpperCase()}</span>
+          <span className="font-display text-3xl text-[#9c8a61]">{(c.name || '?').trim().charAt(0).toUpperCase()}</span>
         )}
       </div>
-      <input value={c.portrait} onChange={(e) => set({ portrait: e.target.value })} placeholder="image URL" className="mt-1 w-[72px] rounded bg-ink-700 px-1 py-0.5 text-[8px] text-white/70 placeholder:text-white/25 outline-none" />
+      <input value={c.portrait} onChange={(e) => set({ portrait: e.target.value })} placeholder="paste image URL…" className="w-full rounded border-[1.5px] border-[#c3b285] bg-[#fbf6e6]/60 px-1.5 py-0.5 text-[9px] text-[#2c2114] outline-none placeholder:text-[#a8966a]" />
     </div>
   )
 }
 
-function F({ label, value, onChange, placeholder, numeric }) {
+// Transparent ink input on the parchment.
+function Ink({ value, onChange, placeholder, center, mono, big, className = '' }) {
   return (
-    <label className="block min-w-0">
-      <span className="block truncate text-[8px] uppercase tracking-wider text-white/40">{label}</span>
-      <input
-        value={value ?? ''}
-        inputMode={numeric ? 'numeric' : undefined}
-        placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded border border-white/10 bg-ink-700 px-1.5 py-1 text-[11px] text-white/85 placeholder:text-white/25 outline-none focus:border-amethyst-400/50"
-      />
-    </label>
+    <input
+      value={value ?? ''}
+      placeholder={placeholder}
+      onChange={(e) => onChange(e.target.value)}
+      className={`w-full bg-transparent text-[#2c2114] outline-none placeholder:text-[#a8966a] ${center ? 'text-center' : ''} ${mono ? 'font-mono' : ''} ${big ? 'text-base' : 'text-[12px]'} ${className}`}
+    />
   )
 }
 
-function Stat({ label, value, onChange, placeholder }) {
+// Transparent ink textarea on the parchment.
+function InkArea({ value, onChange, placeholder, rows = 3 }) {
   return (
-    <div className="rounded-lg border border-white/10 bg-white/[0.03] p-1.5 text-center">
-      <div className="text-[8px] font-semibold uppercase tracking-wider text-white/40">{label}</div>
-      <input value={value ?? ''} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} className="mt-0.5 w-full rounded bg-ink-700 text-center font-mono text-sm text-white/90 placeholder:text-white/25 outline-none" />
-    </div>
-  )
-}
-
-function Row({ active, level, onToggle, label, sub, total }) {
-  const lvl = level !== undefined ? level : active ? 1 : 0
-  return (
-    <button onClick={onToggle} className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left text-[11px] transition hover:bg-white/5">
-      <span className={`flex h-3 w-3 shrink-0 items-center justify-center rounded-full border text-[7px] ${lvl === 0 ? 'border-white/25' : lvl === 1 ? 'border-amethyst-400 bg-amethyst-400' : 'border-aether-300 bg-aether-300'}`}>
-        {lvl === 2 ? <span className="text-ink-900">★</span> : null}
-      </span>
-      <span className="min-w-0 flex-1 truncate text-white/80">{label}{sub ? <span className="text-white/30"> ({sub})</span> : null}</span>
-      <span className="shrink-0 font-mono text-white/85">{fmtMod(total)}</span>
-    </button>
-  )
-}
-
-function Dots({ label, n, color, onSet }) {
-  return (
-    <div className="mt-0.5 flex items-center gap-1">
-      <span className="w-3 text-[10px] text-white/40">{label}</span>
-      {[1, 2, 3].map((i) => (
-        <button key={i} onClick={() => onSet(n >= i ? i - 1 : i)} className={`h-2.5 w-2.5 rounded-full border border-white/20 ${n >= i ? color : 'bg-transparent'}`} />
-      ))}
-    </div>
-  )
-}
-
-function TextArea({ label, value, onChange, placeholder, rows = 2, className = '' }) {
-  return (
-    <label className={`block ${className}`}>
-      {label && <span className="block text-[8px] uppercase tracking-wider text-white/40">{label}</span>}
-      <textarea
-        rows={rows}
-        value={value ?? ''}
-        placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
-        className="mt-0.5 w-full resize-none rounded border border-white/10 bg-ink-700 px-2 py-1 text-[11px] leading-snug text-white/85 placeholder:text-white/25 outline-none focus:border-amethyst-400/50"
-      />
-    </label>
+    <textarea
+      rows={rows}
+      value={value ?? ''}
+      placeholder={placeholder}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full resize-none bg-transparent text-[11px] leading-snug text-[#2c2114] outline-none placeholder:italic placeholder:text-[#a8966a]"
+    />
   )
 }
