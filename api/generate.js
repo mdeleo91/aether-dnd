@@ -1,11 +1,21 @@
 // Serverless AI content generator for the in-app tools.
 // POST { kind, params, campaign } -> { data } | { demo: true } | { error }
 //
-// kinds: 'npc' | 'shop' | 'rolltable' | 'encounter'
+// kinds: 'npc' | 'shop' | 'rolltable' | 'encounter' | 'location' | 'charsheet'
+//   - 'charsheet' is a VISION request: params.image is base64 (no data: prefix)
+//     and params.mediaType is e.g. 'image/jpeg'. The model reads a photo of a
+//     D&D 5e character sheet and returns structured stats.
 // Uses server-side env vars (never hardcode keys):
 //   AI_API_KEY   - required to generate content (OpenAI or Anthropic key)
 //   AI_PROVIDER  - 'openai' (default) or 'anthropic'
 //   AI_MODEL     - optional model override
+const CHARSHEET_PROMPT =
+  'Read this Dungeons & Dragons 5e character sheet image and extract the character. ' +
+  'Return JSON: {"name":string,"class":string,"race":string,"level":number,' +
+  '"abilities":{"STR":number,"DEX":number,"CON":number,"INT":number,"WIS":number,"CHA":number},' +
+  '"ac":number,"hp":number,"maxHp":number,"skills":[string up to 6 notable proficiencies],"notes":string (one short line of anything else useful)}. ' +
+  'Use ability SCORES (e.g. 16), not modifiers. If a value is unreadable, make a sensible estimate.'
+
 const PROMPTS = {
   npc: (p, c) =>
     `Generate ONE D&D 5e NPC or monster for this campaign: ${c}. ${p.note || ''} Role/difficulty: ${p.role || 'any'}. ` +
@@ -28,6 +38,11 @@ const PROMPTS = {
     `Generate a D&D 5e combat encounter for this campaign: ${c}. Party: ${p.party || 'four level-5 PCs'}. Difficulty: ${p.difficulty || 'medium'}. ` +
     `Return JSON: {"title":string,"summary":string (one sentence),"monsters":[{"name":string,"cr":string,"count":number,"ac":number,"hp":number,"init":string (DEX modifier like "+2")}]}. ` +
     `Keep it CR-balanced for the party.`,
+  location: (p, c) =>
+    `Generate ONE evocative D&D 5e location for this campaign: ${c}. Type/biome: ${p.kind || 'any'}. ${p.note || ''} ` +
+    `Return JSON: {"name":string,"type":string (short, e.g. "drowned chapel"),"description":string (2-3 sentences of atmosphere),` +
+    `"features":[3-5 short notable features or points of interest],"hooks":[2-3 one-line adventure hooks],` +
+    `"read_aloud":string (a short boxed-text passage the DM can read to players)}.`,
 }
 
 function parseJson(s) {
@@ -70,19 +85,31 @@ export default async function handler(req, res) {
     }
   }
   const { kind, params = {}, campaign = '' } = body
+  const isCharSheet = kind === 'charsheet'
   const build = PROMPTS[kind]
-  if (!build) {
+  if (!isCharSheet && !build) {
     res.status(400).json({ error: `Unknown kind: ${kind}` })
     return
   }
+  if (isCharSheet && !params.image) {
+    res.status(400).json({ error: 'No character-sheet image provided' })
+    return
+  }
 
-  const system =
-    'You are a Dungeons & Dragons 5e content generator. Respond with ONLY valid minified JSON matching the requested shape. No markdown, no code fences, no commentary.'
-  const user = build(params, campaign)
+  const system = isCharSheet
+    ? 'You read Dungeons & Dragons 5e character sheets from images and output ONLY valid minified JSON matching the requested shape. No markdown, no code fences, no commentary.'
+    : 'You are a Dungeons & Dragons 5e content generator. Respond with ONLY valid minified JSON matching the requested shape. No markdown, no code fences, no commentary.'
+  const userText = isCharSheet ? CHARSHEET_PROMPT : build(params, campaign)
 
   try {
     let text = ''
     if (provider === 'anthropic') {
+      const content = isCharSheet
+        ? [
+            { type: 'image', source: { type: 'base64', media_type: params.mediaType || 'image/jpeg', data: params.image } },
+            { type: 'text', text: userText },
+          ]
+        : userText
       const r = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -92,9 +119,9 @@ export default async function handler(req, res) {
         },
         body: JSON.stringify({
           model,
-          max_tokens: 900,
+          max_tokens: 1024,
           system,
-          messages: [{ role: 'user', content: user }],
+          messages: [{ role: 'user', content }],
         }),
       })
       const j = await r.json()
@@ -104,16 +131,22 @@ export default async function handler(req, res) {
       }
       text = (j.content || []).map((b) => b.text || '').join('')
     } else {
+      const userContent = isCharSheet
+        ? [
+            { type: 'text', text: userText },
+            { type: 'image_url', image_url: { url: `data:${params.mediaType || 'image/jpeg'};base64,${params.image}` } },
+          ]
+        : userText
       const r = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
         body: JSON.stringify({
           model,
-          max_tokens: 900,
-          response_format: { type: 'json_object' },
+          max_tokens: 1024,
+          ...(isCharSheet ? {} : { response_format: { type: 'json_object' } }),
           messages: [
             { role: 'system', content: system },
-            { role: 'user', content: user },
+            { role: 'user', content: userContent },
           ],
         }),
       })
