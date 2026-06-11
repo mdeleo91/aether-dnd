@@ -1,7 +1,12 @@
 import { useState } from 'react'
 import { newId, rollInitiative } from '../../app/generators.js'
 import { aiGenerate } from '../../lib/ai.js'
-import { Heart, Shield, Skull, ChevronRight, Plus, Sparkles, X } from '../Icons.jsx'
+import { Heart, Shield, Skull, ChevronRight, Plus, Sparkles, Users, X } from '../Icons.jsx'
+
+const abilityMod = (score) => {
+  const n = parseInt(score, 10)
+  return Number.isFinite(n) ? Math.floor((n - 10) / 2) : 0
+}
 
 const CONDITIONS = [
   'Blessed', 'Bloodied', 'Blinded', 'Charmed', 'Concentrating', 'Frightened',
@@ -9,7 +14,7 @@ const CONDITIONS = [
   'Stunned', 'Unconscious',
 ]
 
-export default function InitiativeTracker({ card, onData }) {
+export default function InitiativeTracker({ card, onData, party = [] }) {
   const data = card.data || { combatants: [], round: 1, turn: 0 }
   const list = data.combatants || []
   const order = [...list].sort((a, b) => b.init - a.init)
@@ -56,6 +61,27 @@ export default function InitiativeTracker({ card, onData }) {
       ),
     )
 
+  const addParty = () => {
+    setMsg('')
+    if (!party.length) { setMsg('No party members yet — add them in the Party panel.'); return }
+    const existing = new Set(list.map((c) => c.name))
+    const added = party
+      .filter((p) => !existing.has(p.name))
+      .map((p) => ({
+        id: newId('cb'),
+        name: p.name,
+        sub: `Lv ${p.level || 1} ${p.class || ''}`.trim(),
+        init: rollInitiative(String(abilityMod(p.abilities?.DEX))),
+        hp: p.hp || p.maxHp || 10,
+        maxHp: p.maxHp || p.hp || 10,
+        ac: p.ac || 10,
+        kind: 'pc',
+        conditions: [],
+      }))
+    if (added.length) setList((l) => [...l, ...added])
+    setMsg(added.length ? `Added ${added.length} party member${added.length > 1 ? 's' : ''} (initiative rolled).` : 'Party is already in the tracker.')
+  }
+
   const aiEncounter = async () => {
     setBusy(true); setMsg('')
     const res = await aiGenerate('encounter', { difficulty: 'medium', party: 'four level-5 PCs' })
@@ -88,6 +114,13 @@ export default function InitiativeTracker({ card, onData }) {
           <span className="font-display text-lg leading-none">{data.round || 1}</span>
         </div>
         <div className="flex items-center gap-1.5">
+          <button
+            onClick={addParty}
+            title="Add your party members to the initiative order"
+            className="inline-flex items-center gap-1 rounded-lg border border-white/15 px-2 py-1 text-[11px] font-medium text-white/65 transition hover:text-white"
+          >
+            <Users size={12} /> Party
+          </button>
           <button
             onClick={aiEncounter}
             disabled={busy}

@@ -1,21 +1,29 @@
 import { useState } from 'react'
 import { aiGenerate } from '../../lib/ai.js'
-import { Sparkles, Skull } from '../Icons.jsx'
+import { Sparkles, Skull, Check } from '../Icons.jsx'
 
 const ABILS = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA']
 
-export default function NpcCard({ card, onData }) {
+export default function NpcCard({ card, onData, lib }) {
   const npc = card.data?.npc || null
   const [busy, setBusy] = useState(false)
   const [state, setState] = useState('') // '' | 'demo' | error message
+  const [saved, setSaved] = useState(false)
 
   const generate = async () => {
-    setBusy(true); setState('')
+    setBusy(true); setState(''); setSaved(false)
     const res = await aiGenerate('npc', { role: 'any' })
     setBusy(false)
     if (res.demo) { setState('demo'); return }
     if (res.error) { setState('Generation failed: ' + res.error); return }
     onData(card.id, { npc: res.data })
+  }
+
+  const saveToLibrary = () => {
+    if (!npc) return
+    lib?.saveNpcToLibrary?.(npc)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 1800)
   }
 
   const edit = (patch) => onData(card.id, { npc: { ...npc, ...patch } })
@@ -34,9 +42,14 @@ export default function NpcCard({ card, onData }) {
           onChange={(e) => edit({ name: e.target.value })}
           className="min-w-0 flex-1 rounded bg-transparent font-display text-base text-white outline-none focus:bg-white/5"
         />
-        <button onClick={generate} disabled={busy} title="Regenerate with AI" className="inline-flex shrink-0 items-center gap-1 rounded-md border border-amethyst-400/40 px-2 py-0.5 text-[10px] text-amethyst-100 transition hover:bg-amethyst-400/10 disabled:opacity-50">
-          {busy ? <><Spinner size={9} /> …</> : '↻ AI'}
-        </button>
+        <div className="flex shrink-0 items-center gap-1">
+          <button onClick={saveToLibrary} title="Save to this campaign's NPC library" className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] transition ${saved ? 'border-emerald-400/40 text-emerald-300' : 'border-white/15 text-white/60 hover:text-white'}`}>
+            {saved ? <><Check size={10} /> Saved</> : '★ Save'}
+          </button>
+          <button onClick={generate} disabled={busy} title="Regenerate with AI" className="inline-flex items-center gap-1 rounded-md border border-amethyst-400/40 px-2 py-0.5 text-[10px] text-amethyst-100 transition hover:bg-amethyst-400/10 disabled:opacity-50">
+            {busy ? <><Spinner size={9} /> …</> : '↻ AI'}
+          </button>
+        </div>
       </div>
       <input
         value={npc.type || ''}

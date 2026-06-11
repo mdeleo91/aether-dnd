@@ -5,7 +5,10 @@ import NpcCard from './NpcCard.jsx'
 import ShopCard from './ShopCard.jsx'
 import NotesCard from './NotesCard.jsx'
 import RollCard from './RollCard.jsx'
-import { Dice, Map, Bag, Scroll, Swords, Skull, Sparkles } from '../Icons.jsx'
+import PartyCard from './PartyCard.jsx'
+import LocationCard from './LocationCard.jsx'
+import LibraryCard from './LibraryCard.jsx'
+import { Dice, Map, Bag, Scroll, Swords, Skull, Sparkles, Users, MapPin, Book } from '../Icons.jsx'
 
 const ZOOM_MIN = 0.5
 const ZOOM_MAX = 1.6
@@ -14,7 +17,7 @@ const MIN_H = 150
 const MAX_W = 760
 const MAX_H = 560
 
-export default function Canvas({ cards, setCards, zoom = 1, setZoom, offset, setOffset, onData, onPush }) {
+export default function Canvas({ cards, setCards, zoom = 1, setZoom, offset, setOffset, onData, onPush, lib }) {
   const [active, setActive] = useState(null)
   const [panning, setPanning] = useState(false)
   const drag = useRef(null)
@@ -127,9 +130,19 @@ export default function Canvas({ cards, setCards, zoom = 1, setZoom, offset, set
             onMax={toggleMax}
             onData={onData}
             onPush={onPush}
+            lib={lib}
           />
         ))}
       </div>
+
+      {cards.length === 0 && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <div className="text-center">
+            <p className="font-display text-lg text-white/55">Fresh campaign — a clean slate.</p>
+            <p className="mt-1 text-sm text-white/35">Add a tool from the left rail, or ask the co-DM to get started.</p>
+          </div>
+        </div>
+      )}
 
       <div className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full border border-white/10 bg-ink-800/80 px-3 py-1 text-[11px] text-white/40 backdrop-blur">
         Middle-click drag to pan · Ctrl + scroll to zoom · drag the title bar to move · drag edges to resize
@@ -145,13 +158,17 @@ const headTints = {
   shop: 'text-rune-300',
   notes: 'text-aether-300',
   roll: 'text-amethyst-300',
+  location: 'text-aether-300',
+  party: 'text-aether-300',
+  library: 'text-amethyst-300',
   gen: 'text-rune-300',
 }
 const headIcons = {
-  initiative: Swords, map: Map, npc: Skull, shop: Bag, notes: Scroll, roll: Dice, gen: Sparkles,
+  initiative: Swords, map: Map, npc: Skull, shop: Bag, notes: Scroll, roll: Dice,
+  location: MapPin, party: Users, library: Book, gen: Sparkles,
 }
 
-function CanvasCard({ card, active, onHeaderDown, onResizeDown, onClose, onMin, onMax, onData, onPush }) {
+function CanvasCard({ card, active, onHeaderDown, onResizeDown, onClose, onMin, onMax, onData, onPush, lib }) {
   const Icon = headIcons[card.type] || Scroll
   const rootRef = useRef(null)
   const startResize = (e, dirX, dirY) => {
@@ -194,7 +211,7 @@ function CanvasCard({ card, active, onHeaderDown, onResizeDown, onClose, onMin, 
 
       {!card.min && (
         <div className="min-h-0 flex-1 overflow-auto p-3">
-          <CardBody card={card} onData={onData} onPush={onPush} />
+          <CardBody card={card} onData={onData} onPush={onPush} lib={lib} />
         </div>
       )}
 
@@ -213,20 +230,26 @@ function CanvasCard({ card, active, onHeaderDown, onResizeDown, onClose, onMin, 
   )
 }
 
-function CardBody({ card, onData, onPush }) {
+function CardBody({ card, onData, onPush, lib }) {
   switch (card.type) {
     case 'initiative':
-      return <InitiativeTracker card={card} onData={onData} />
+      return <InitiativeTracker card={card} onData={onData} party={lib?.party || []} />
     case 'map':
       return <MapCard card={card} onData={onData} onPush={onPush} />
     case 'npc':
-      return <NpcCard card={card} onData={onData} />
+      return <NpcCard card={card} onData={onData} lib={lib} />
     case 'shop':
       return <ShopCard card={card} onData={onData} />
     case 'notes':
       return <NotesCard card={card} onData={onData} />
     case 'roll':
       return <RollCard card={card} onData={onData} />
+    case 'location':
+      return <LocationCard card={card} onData={onData} lib={lib} />
+    case 'party':
+      return <PartyCard card={card} onData={onData} lib={lib} />
+    case 'library':
+      return <LibraryCard lib={lib} />
     case 'gen':
       return <GenBody card={card} />
     default:
