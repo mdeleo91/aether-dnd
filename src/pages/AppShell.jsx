@@ -23,7 +23,7 @@ const tools = [
   { type: 'map', icon: Map, label: 'Battle Map', w: 470 },
   { type: 'party', icon: Users, label: 'Party', w: 600, modal: true },
   { type: 'npc', icon: Skull, label: 'NPC', w: 320 },
-  { type: 'monster', icon: Dragon, label: 'Monster / Enemy', w: 380 },
+  { type: 'monster', icon: Dragon, label: 'Enemies', w: 380 },
   { type: 'location', icon: MapPin, label: 'Location', w: 340 },
   { type: 'library', icon: Book, label: 'Library', w: 320 },
   { type: 'shop', icon: Bag, label: 'Shop', w: 350 },
@@ -172,7 +172,7 @@ export default function AppShell() {
     saveLocationToLibrary: (location) => setCampaign((c) => ({ ...c, locationLibrary: [{ id: newId('loc'), savedAt: Date.now(), location }, ...(c.locationLibrary || [])] })),
     removeLocationFromLibrary: (id) => setCampaign((c) => ({ ...c, locationLibrary: (c.locationLibrary || []).filter((l) => l.id !== id) })),
     addNpcCardFromLibrary: (npc) => setCards((cs) => [...cs, { ...makeCard('npc', 160 + Math.random() * 160, 140 + Math.random() * 120, 320), data: { npc } }]),
-    addMonsterCardFromLibrary: (monster) => setCards((cs) => [...cs, { ...makeCard('monster', 160 + Math.random() * 160, 140 + Math.random() * 120, 380), data: { monster, mode: 'search', query: '', results: [] } }]),
+    addMonsterCardFromLibrary: (monster) => setCards((cs) => [...cs, { ...makeCard('monster', 160 + Math.random() * 160, 140 + Math.random() * 120, 380), data: { monster, monsterSource: 'custom', mode: 'custom', query: '', results: [] } }]),
     addLocationCardFromLibrary: (location) => setCards((cs) => [...cs, { ...makeCard('location', 160 + Math.random() * 160, 140 + Math.random() * 120, 340), data: { location, kind: '', note: '' } }]),
   }), [campaign.party, campaign.npcLibrary, campaign.monsterLibrary, campaign.locationLibrary])
 
