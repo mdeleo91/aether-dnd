@@ -143,3 +143,15 @@ export const UserPlus = make(
     <path d="M19 8v6M16 11h6" />
   </>,
 )
+export const MapPin = make(
+  <>
+    <path d="M12 21s7-6.3 7-11a7 7 0 0 0-14 0c0 4.7 7 11 7 11z" />
+    <circle cx="12" cy="10" r="2.5" />
+  </>,
+)
+export const Book = make(
+  <>
+    <path d="M5 4a2 2 0 0 1 2-2h12v18H7a2 2 0 0 0-2 2V4z" />
+    <path d="M19 16H7a2 2 0 0 0-2 2" />
+  </>,
+)
