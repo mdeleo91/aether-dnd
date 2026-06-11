@@ -23,7 +23,7 @@ export function defaultData(type) {
     case 'location':
       return { location: null, kind: '', note: '' }
     case 'monster':
-      return { monster: null, mode: 'search', query: '', results: [] }
+      return { monster: null, monsterSource: 'srd', mode: 'srd', query: '', results: [] }
     case 'party':
       // Party roster lives at the campaign level (shared with initiative); the
       // card is just a view, so it needs no per-card data.
@@ -45,7 +45,7 @@ export const TOOL_TITLES = {
   location: 'Location',
   party: 'Party',
   library: 'Library',
-  monster: 'Monster / Enemy',
+  monster: 'Enemies',
 }
 
 // A few tools open large enough that a fixed starter height (with internal
