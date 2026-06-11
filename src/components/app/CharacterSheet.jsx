@@ -68,11 +68,11 @@ export default function CharacterSheet({ member, lib, onBack }) {
         {/* --------------------------------- PAGE 1 --------------------------------- */}
         {page === 0 && (
           <div className="grid grid-cols-12 gap-2">
-            {/* header: name box + identity grid */}
+            {/* identity header */}
             <Box className="col-span-12 sm:col-span-4" label="Character Name">
               <Ink value={c.name} onChange={(v) => set({ name: v })} big className="font-display" />
             </Box>
-            <div className="col-span-12 grid grid-cols-3 gap-2 sm:col-span-8 sm:grid-cols-3">
+            <div className="col-span-12 grid grid-cols-3 gap-2 sm:col-span-8">
               <FieldBox label="Class & Level" value={c.classes} onChange={(v) => set({ classes: v })} placeholder="Fighter 5" />
               <FieldBox label="Background" value={c.background} onChange={(v) => set({ background: v })} />
               <FieldBox label="Player Name" value={c.playerName} onChange={(v) => set({ playerName: v })} />
@@ -81,15 +81,18 @@ export default function CharacterSheet({ member, lib, onBack }) {
               <FieldBox label="Experience Points" value={c.xp} onChange={(v) => set({ xp: v })} />
             </div>
 
-            {/* LEFT STRIP — ability scores */}
-            <div className="col-span-3 space-y-3.5">
+            {/* COLUMN 1 (narrow) — ability scores, then Other Proficiencies */}
+            <div className="col-span-3 space-y-3.5 sm:col-span-2">
               {ABILS.map((k) => (
                 <AbilityBox key={k} k={k} mod={abilityMod(c.abilities[k])} score={c.abilities[k]} onScore={(v) => editAbility(k, v)} />
               ))}
+              <TitledBox title="Other Proficiencies & Languages">
+                <InkArea value={c.proficienciesLanguages} onChange={(v) => set({ proficienciesLanguages: v })} rows={6} />
+              </TitledBox>
             </div>
 
-            {/* MIDDLE — inspiration / prof / saves / skills / passive */}
-            <div className="col-span-5 space-y-2 sm:col-span-4">
+            {/* COLUMN 2 (medium) — inspiration / prof / saves / skills / passive */}
+            <div className="col-span-4 space-y-2 sm:col-span-3">
               <div className="grid grid-cols-2 gap-2">
                 <PillBox label="Inspiration">
                   <button onClick={() => set({ inspiration: !c.inspiration })} className="mx-auto block h-5 w-5 rotate-45 rounded-[3px] border-[1.5px] border-white/25" style={{ background: c.inspiration ? ACCENT : 'transparent' }} />
@@ -114,19 +117,24 @@ export default function CharacterSheet({ member, lib, onBack }) {
               </div>
             </div>
 
-            {/* RIGHT — combat / attacks */}
-            <div className="col-span-4 space-y-2 sm:col-span-4">
+            {/* COLUMN 3 (wide) — combat */}
+            <div className="col-span-5 space-y-2 sm:col-span-4">
               <div className="grid grid-cols-3 gap-2">
                 <CenterBox label="Armor Class" value={c.ac} onChange={(v) => set({ ac: v })} />
                 <CenterBox label="Initiative" value={c.initiativeOverride} onChange={(v) => set({ initiativeOverride: v })} placeholder={fmtMod(initiativeValue(c))} />
                 <CenterBox label="Speed" value={c.speed} onChange={(v) => set({ speed: v })} placeholder="30" />
               </div>
-              <TitledBox title="Hit Points">
-                <div className="grid grid-cols-3 gap-1.5 text-center">
-                  <MiniStat label="Max" value={c.maxHp} onChange={(v) => set({ maxHp: v })} />
-                  <MiniStat label="Current" value={c.hp} onChange={(v) => set({ hp: v })} />
-                  <MiniStat label="Temp" value={c.tempHp} onChange={(v) => set({ tempHp: v })} />
+              {/* Current Hit Points: thin Hit Point Maximum line + large current area */}
+              <div className="rounded-md border border-white/10 bg-white/[0.03]">
+                <div className="flex items-center justify-center gap-1.5 border-b border-white/10 px-2 py-0.5">
+                  <span className="text-[7.5px] font-semibold uppercase tracking-wide text-white/40">Hit Point Maximum</span>
+                  <input value={c.maxHp ?? ''} onChange={(e) => set({ maxHp: e.target.value })} className="w-10 bg-transparent text-center font-mono text-[11px] text-white/75 outline-none" />
                 </div>
+                <input value={c.hp ?? ''} onChange={(e) => set({ hp: e.target.value })} className="w-full bg-transparent py-1.5 text-center font-mono text-2xl text-white outline-none" />
+                <div className="border-t border-white/10 py-[3px] text-center text-[8px] font-semibold uppercase tracking-[0.1em] text-white/40">Current Hit Points</div>
+              </div>
+              <TitledBox title="Temporary Hit Points">
+                <Ink value={c.tempHp} onChange={(v) => set({ tempHp: v })} center mono />
               </TitledBox>
               <div className="grid grid-cols-2 gap-2">
                 <TitledBox title="Hit Dice">
@@ -140,26 +148,18 @@ export default function CharacterSheet({ member, lib, onBack }) {
               <TitledBox title="Attacks & Spellcasting">
                 <AttackTable attacks={c.attacks} editAttack={editAttack} addAttack={addAttack} removeAttack={removeAttack} />
               </TitledBox>
+              <TitledBox title="Equipment">
+                <InkArea value={c.equipment} onChange={(v) => set({ equipment: v })} rows={3} />
+              </TitledBox>
             </div>
 
-            {/* BOTTOM — proficiencies / equipment / features / personality */}
-            <TitledBox title="Other Proficiencies & Languages" className="col-span-12 sm:col-span-6">
-              <InkArea value={c.proficienciesLanguages} onChange={(v) => set({ proficienciesLanguages: v })} rows={3} />
-            </TitledBox>
-            <TitledBox title="Equipment" className="col-span-12 sm:col-span-6">
-              <InkArea value={c.equipment} onChange={(v) => set({ equipment: v })} rows={3} />
-            </TitledBox>
-
-            <div className="col-span-12 grid grid-cols-12 gap-2">
-              <div className="col-span-12 space-y-2 sm:col-span-7">
-                <TitledBox title="Personality Traits"><InkArea value={c.personalityTraits} onChange={(v) => set({ personalityTraits: v })} rows={2} /></TitledBox>
-                <TitledBox title="Ideals"><InkArea value={c.ideals} onChange={(v) => set({ ideals: v })} rows={2} /></TitledBox>
-                <TitledBox title="Bonds"><InkArea value={c.bonds} onChange={(v) => set({ bonds: v })} rows={2} /></TitledBox>
-                <TitledBox title="Flaws"><InkArea value={c.flaws} onChange={(v) => set({ flaws: v })} rows={2} /></TitledBox>
-              </div>
-              <TitledBox title="Features & Traits" className="col-span-12 sm:col-span-5">
-                <InkArea value={c.features} onChange={(v) => set({ features: v })} rows={12} />
-              </TitledBox>
+            {/* COLUMN 4 (roleplay) — personality + features, running alongside combat */}
+            <div className="col-span-12 space-y-2 sm:col-span-3">
+              <TitledBox title="Personality Traits"><InkArea value={c.personalityTraits} onChange={(v) => set({ personalityTraits: v })} rows={2} /></TitledBox>
+              <TitledBox title="Ideals"><InkArea value={c.ideals} onChange={(v) => set({ ideals: v })} rows={2} /></TitledBox>
+              <TitledBox title="Bonds"><InkArea value={c.bonds} onChange={(v) => set({ bonds: v })} rows={2} /></TitledBox>
+              <TitledBox title="Flaws"><InkArea value={c.flaws} onChange={(v) => set({ flaws: v })} rows={2} /></TitledBox>
+              <TitledBox title="Features & Traits"><InkArea value={c.features} onChange={(v) => set({ features: v })} rows={10} /></TitledBox>
             </div>
           </div>
         )}
@@ -280,15 +280,6 @@ function CenterBox({ label, value, onChange, placeholder }) {
     <div className="rounded-md border border-white/10 bg-white/[0.03] px-1 pt-1.5 pb-1 text-center">
       <input value={value ?? ''} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} className="w-full bg-transparent text-center font-mono text-base text-white/90 outline-none placeholder:text-white/25" />
       <div className="mt-0.5 text-[7.5px] font-semibold uppercase leading-tight tracking-[0.06em] text-white/40">{label}</div>
-    </div>
-  )
-}
-
-function MiniStat({ label, value, onChange }) {
-  return (
-    <div>
-      <input value={value ?? ''} onChange={(e) => onChange(e.target.value)} className="w-full rounded border border-white/10 bg-ink-700 py-0.5 text-center font-mono text-sm text-white/90 outline-none" />
-      <div className="text-[7px] font-semibold uppercase tracking-wide text-white/40">{label}</div>
     </div>
   )
 }
