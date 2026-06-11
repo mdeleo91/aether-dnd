@@ -55,6 +55,21 @@ const PROMPTS = {
     `Return JSON: {"name":string,"type":string (short, e.g. "drowned chapel"),"description":string (2-3 sentences of atmosphere),` +
     `"features":[3-5 short notable features or points of interest],"hooks":[2-3 one-line adventure hooks],` +
     `"read_aloud":string (a short boxed-text passage the DM can read to players)}.`,
+  monster: (p, c) =>
+    `Generate ONE original D&D 5e MONSTER stat block fitting this campaign: ${c}. ${p.prompt || ''} ` +
+    (p.cr ? `Target Challenge Rating: ${p.cr}. ` : '') +
+    (p.type ? `Creature type: ${p.type}. ` : '') +
+    `Use ability SCORES (e.g. 17), not modifiers, and make it mechanically coherent for its CR (AC, HP, attack bonuses, and damage appropriate to the CR). ` +
+    `Return JSON: {"name":string,"size":string,"type":string,"subtype":string,"alignment":string,` +
+    `"ac":number,"acType":string (e.g. "natural armor"),"hp":number,"hitDice":string (e.g. "7d8+14"),"speed":string,` +
+    `"abilities":{"STR":number,"DEX":number,"CON":number,"INT":number,"WIS":number,"CHA":number},` +
+    `"saves":string (e.g. "CON +6, WIS +4"),"skills":string (e.g. "Perception +5, Stealth +6"),` +
+    `"damageVulnerabilities":string,"damageResistances":string,"damageImmunities":string,"conditionImmunities":string,` +
+    `"senses":string (e.g. "darkvision 60 ft."),"passivePerception":number,"languages":string,"cr":string (e.g. "5" or "1/2"),` +
+    `"traits":[{"name":string,"desc":string}],"actions":[{"name":string,"desc":string}],` +
+    `"bonusActions":[{"name":string,"desc":string}],"reactions":[{"name":string,"desc":string}],` +
+    `"legendaryActions":[{"name":string,"desc":string}],"legendaryDescription":string,"lairActions":[{"name":string,"desc":string}]}. ` +
+    `Leave arrays empty and strings "" where not applicable.`,
 }
 
 function parseJson(s) {
@@ -98,6 +113,7 @@ export default async function handler(req, res) {
   }
   const { kind, params = {}, campaign = '' } = body
   const isCharSheet = kind === 'charsheet'
+  const bigOutput = isCharSheet || kind === 'monster' // stat blocks need more tokens
   const build = PROMPTS[kind]
   if (!isCharSheet && !build) {
     res.status(400).json({ error: `Unknown kind: ${kind}` })
@@ -140,7 +156,7 @@ export default async function handler(req, res) {
         },
         body: JSON.stringify({
           model,
-          max_tokens: isCharSheet ? 2048 : 1024,
+          max_tokens: bigOutput ? 2048 : 1024,
           system,
           messages: [{ role: 'user', content }],
         }),
@@ -163,7 +179,7 @@ export default async function handler(req, res) {
         headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
         body: JSON.stringify({
           model,
-          max_tokens: isCharSheet ? 2048 : 1024,
+          max_tokens: bigOutput ? 2048 : 1024,
           ...(isCharSheet ? {} : { response_format: { type: 'json_object' } }),
           messages: [
             { role: 'system', content: system },
