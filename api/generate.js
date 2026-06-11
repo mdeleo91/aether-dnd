@@ -10,11 +10,20 @@
 //   AI_PROVIDER  - 'openai' (default) or 'anthropic'
 //   AI_MODEL     - optional model override
 const CHARSHEET_PROMPT =
-  'Read this Dungeons & Dragons 5e character sheet image and extract the character. ' +
-  'Return JSON: {"name":string,"class":string,"race":string,"level":number,' +
+  'You are reading a Dungeons & Dragons 5e character sheet from a photo. Extract EVERYTHING that is legible into the JSON shape below. ' +
+  'Leave a field blank ("" / null) or omit it if it is not readable — do NOT invent values. Use ability SCORES (e.g. 16), not modifiers. ' +
+  'JSON shape: {' +
+  '"name":string,"classes":string (class and level, e.g. "Fighter 5" or "Cleric 3 / Wizard 2"),"level":number (total character level),"race":string,"background":string,"alignment":string,"playerName":string,"xp":string,' +
   '"abilities":{"STR":number,"DEX":number,"CON":number,"INT":number,"WIS":number,"CHA":number},' +
-  '"ac":number,"hp":number,"maxHp":number,"skills":[string up to 6 notable proficiencies],"notes":string (one short line of anything else useful)}. ' +
-  'Use ability SCORES (e.g. 16), not modifiers. If a value is unreadable, make a sensible estimate.'
+  '"profBonus":number,"inspiration":boolean,' +
+  '"saves":{"STR":boolean,"DEX":boolean,"CON":boolean,"INT":boolean,"WIS":boolean,"CHA":boolean} (true where the proficiency bubble is filled),' +
+  '"skills":{"Acrobatics":0,"Animal Handling":0,"Arcana":0,"Athletics":0,"Deception":0,"History":0,"Insight":0,"Intimidation":0,"Investigation":0,"Medicine":0,"Nature":0,"Perception":0,"Performance":0,"Persuasion":0,"Religion":0,"Sleight of Hand":0,"Stealth":0,"Survival":0} where 0=not proficient, 1=proficient, 2=expertise,' +
+  '"ac":number,"initiative":number,"speed":string,"maxHp":number,"currentHp":number,"tempHp":number,"hitDice":string,' +
+  '"attacks":[{"name":string,"atk":string (e.g. "+7"),"damage":string (e.g. "1d8+4 slashing")}],' +
+  '"spellClass":string,"spellSaveDC":number,"spellAtkBonus":string,"spellSlots":{"1":number,"2":number,"3":number,"4":number,"5":number,"6":number,"7":number,"8":number,"9":number} (total slots per level),"spells":string (comma-separated known/prepared spells),' +
+  '"features":string (features & traits),"proficienciesLanguages":string,"equipment":string,' +
+  '"personalityTraits":string,"ideals":string,"bonds":string,"flaws":string,"backstory":string}. ' +
+  'Respond with ONLY the minified JSON.'
 
 const PROMPTS = {
   npc: (p, c) =>
@@ -128,7 +137,7 @@ export default async function handler(req, res) {
         },
         body: JSON.stringify({
           model,
-          max_tokens: 1024,
+          max_tokens: isCharSheet ? 2048 : 1024,
           system,
           messages: [{ role: 'user', content }],
         }),
@@ -151,7 +160,7 @@ export default async function handler(req, res) {
         headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
         body: JSON.stringify({
           model,
-          max_tokens: 1024,
+          max_tokens: isCharSheet ? 2048 : 1024,
           ...(isCharSheet ? {} : { response_format: { type: 'json_object' } }),
           messages: [
             { role: 'system', content: system },
