@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import Logo from '../components/Logo.jsx'
 import Canvas from '../components/app/Canvas.jsx'
 import CoGMPanel from '../components/app/CoGMPanel.jsx'
+import PartyModal from '../components/app/PartyModal.jsx'
+import { ConfirmProvider, useConfirm } from '../components/app/ConfirmDialog.jsx'
 import { useAuth } from '../auth/AuthProvider.jsx'
 import {
   loadCampaignsIndex, saveCampaignsIndex, loadCampaign, saveCampaign,
@@ -19,7 +21,7 @@ import {
 const tools = [
   { type: 'initiative', icon: Swords, label: 'Initiative', w: 330 },
   { type: 'map', icon: Map, label: 'Battle Map', w: 470 },
-  { type: 'party', icon: Users, label: 'Party', w: 600 },
+  { type: 'party', icon: Users, label: 'Party', w: 600, modal: true },
   { type: 'npc', icon: Skull, label: 'NPC', w: 320 },
   { type: 'location', icon: MapPin, label: 'Location', w: 340 },
   { type: 'library', icon: Book, label: 'Library', w: 320 },
@@ -71,6 +73,7 @@ export default function AppShell() {
   const [cogmOpen, setCogmOpen] = useState(true)
   const [isFs, setIsFs] = useState(false)
   const [palette, setPalette] = useState(false)
+  const [partyOpen, setPartyOpen] = useState(false)
   const shellRef = useRef(null)
   const mainRef = useRef(null)
 
@@ -251,6 +254,7 @@ export default function AppShell() {
   }
 
   return (
+    <ConfirmProvider>
     <div ref={shellRef} className="flex h-screen flex-col overflow-hidden bg-ink-900 text-white">
       {/* TOP BAR */}
       <header className="z-30 flex h-14 shrink-0 items-center gap-3 border-b border-white/5 bg-ink-800/80 px-3 backdrop-blur">
@@ -291,12 +295,12 @@ export default function AppShell() {
         <aside className="flex w-16 shrink-0 flex-col items-center gap-1 overflow-y-auto border-r border-white/5 bg-ink-800/60 py-3 lg:w-48 lg:items-stretch lg:px-3">
           <p className="hidden px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-white/35 lg:block">Tools</p>
           {tools.map((t) => {
-            const open = openTypes.has(t.type)
+            const open = t.modal ? partyOpen : openTypes.has(t.type)
             return (
               <button
                 key={t.type}
-                onClick={() => toggleTool(t.type, t.w)}
-                title={open ? `${t.label} is open — click to close` : `Add ${t.label}`}
+                onClick={() => (t.modal ? setPartyOpen((o) => !o) : toggleTool(t.type, t.w))}
+                title={open ? `${t.label} is open — click to close` : t.modal ? `Open ${t.label}` : `Add ${t.label}`}
                 aria-pressed={open}
                 className={`group flex items-center gap-3 rounded-lg p-2.5 transition lg:px-3 ${
                   open ? 'bg-amethyst-400/15 text-amethyst-100 ring-1 ring-inset ring-amethyst-400/30' : 'text-white/60 hover:bg-white/5 hover:text-white'
@@ -352,7 +356,9 @@ export default function AppShell() {
       </div>
 
       {palette && <CommandPalette cards={cards} onClose={() => setPalette(false)} onFocus={focusCard} onSpawn={(t) => { spawn(t, tools.find((x) => x.type === t)?.w); setPalette(false) }} />}
+      {partyOpen && <PartyModal lib={lib} onClose={() => setPartyOpen(false)} />}
     </div>
+    </ConfirmProvider>
   )
 }
 
@@ -362,6 +368,7 @@ function CampaignMenu({ campaigns, currentId, currentName, onSwitch, onCreate, o
   const [open, setOpen] = useState(false)
   const [newName, setNewName] = useState('')
   const ref = useRef(null)
+  const confirm = useConfirm()
 
   useEffect(() => {
     if (!open) return
@@ -405,7 +412,7 @@ function CampaignMenu({ campaigns, currentId, currentName, onSwitch, onCreate, o
                 >Rename</button>
                 {campaigns.length > 1 && (
                   <button
-                    onClick={() => { if (window.confirm(`Delete campaign “${c.name}”? This cannot be undone.`)) onDelete(c.id) }}
+                    onClick={async () => { if (await confirm({ title: 'Delete campaign?', body: `Delete “${c.name}” and everything in it? This can't be undone.`, confirmLabel: 'Delete campaign' })) onDelete(c.id) }}
                     title="Delete"
                     className="rounded px-1 text-white/25 opacity-0 transition hover:text-red-300 group-hover:opacity-100"
                   ><X size={12} /></button>
