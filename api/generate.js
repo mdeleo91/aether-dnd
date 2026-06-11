@@ -22,7 +22,10 @@ const CHARSHEET_PROMPT =
   '"attacks":[{"name":string,"atk":string (e.g. "+7"),"damage":string (e.g. "1d8+4 slashing")}],' +
   '"spellClass":string,"spellSaveDC":number,"spellAtkBonus":string,"spellSlots":{"1":number,"2":number,"3":number,"4":number,"5":number,"6":number,"7":number,"8":number,"9":number} (total slots per level),"spells":string (comma-separated known/prepared spells),' +
   '"features":string (features & traits),"proficienciesLanguages":string,"equipment":string,' +
-  '"personalityTraits":string,"ideals":string,"bonds":string,"flaws":string,"backstory":string}. ' +
+  '"personalityTraits":string,"ideals":string,"bonds":string,"flaws":string,"backstory":string,' +
+  '"age":string,"height":string,"weight":string,"eyes":string,"skin":string,"hair":string,' +
+  '"allies":[{"name":string,"notes":string}] (allies & organizations),"additionalFeatures":string (additional features & traits),"treasure":string,' +
+  '"spellcastingAbility":string (e.g. "WIS"),"cantrips":string (comma-separated cantrip names),"spellsByLevel":{"1":string,"2":string,"3":string,"4":string,"5":string,"6":string,"7":string,"8":string,"9":string} (comma-separated spell names for each level)}. ' +
   'Respond with ONLY the minified JSON.'
 
 const PROMPTS = {
