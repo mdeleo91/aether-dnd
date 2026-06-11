@@ -4,7 +4,7 @@ import { suggestionChips, memoryFacts } from '../../data/mock.js'
 
 const cannedReplies = [
   {
-    text: 'For your four level-5 PCs, a Hard fight is ~1,100 XP. A **Water Elemental** (CR 5, 1,800 XP) makes a clean single-boss encounter — bound to the vault by the Drowned Choir. Drop the 5e statblock on the canvas?',
+    text: 'For four level-5 PCs, a Hard fight is ~1,100 XP. A **Water Elemental** (CR 5, 1,800 XP) makes a clean single-boss encounter. Drop the 5e statblock on the canvas?',
     card: {
       kind: '5e Encounter · Hard',
       title: 'Water Elemental',
@@ -16,20 +16,19 @@ const cannedReplies = [
     text: '**Grappling (5e):** make a special melee attack — an Athletics check contested by the target’s Athletics or Acrobatics (their choice). On a success the target is **Grappled** (speed 0). The target only needs to be no more than one size larger than you. It’s not an attack roll, so no advantage from Reckless Attack — but you can replace one attack of a Multiattack with a grapple. *(PHB p.195)*',
   },
   {
-    text: 'Three Hollowmere rumors your players can overhear:\n• "The tide came in red last new moon — and didn’t go back out."\n• "Old Brennick sells maps to the vault. Half are forged. He won’t say which."\n• "They say the bells still ring under the water. They say you shouldn’t answer."',
+    text: 'Three tavern rumors your players can overhear:\n• "The old mill burned three nights ago — and the miller hasn’t been seen since."\n• "A peddler sells maps to the ruins. Half are forged. He won’t say which."\n• "They say a light still moves in the tower window. They say no one lives there."',
   },
 ]
 
 const SYSTEM_PROMPT =
-  'You are AETHER, an AI co-Dungeon Master for a Dungeons & Dragons 5th Edition (5e) campaign called "The Sunken Crown". ' +
-  'The party is four level-5 PCs: Kaelen (Half-Elf Paladin), Mira (Halfling Arcane Trickster), Brother Aldous (Tempest Cleric), and Lyra (Evocation Wizard). ' +
-  'The threat is the Drowned Choir cult beneath the flooded town of Hollowmere. ' +
-  'Answer as a concise, practical co-DM: stay on the 5e rules (cite the rule when relevant), keep encounters CR-balanced for the party, and write in the DM’s voice. Use markdown **bold** sparingly. Keep replies short.'
+  'You are AETHER, an AI co-Dungeon Master for a Dungeons & Dragons 5th Edition (5e) game. ' +
+  'Do NOT assume any preset campaign, setting, place, or party — adapt to whatever the DM is actually running, and only use campaign details the DM gives you. ' +
+  'Answer as a concise, practical co-DM: stay on the 5e rules (cite the rule when relevant), keep encounters CR-balanced, and write in the DM’s voice. Use markdown **bold** sparingly. Keep replies short.'
 
 export default function CoGMPanel({ onSpawnCard }) {
   const [tab, setTab] = useState('chat')
   const [msgs, setMsgs] = useState([
-    { role: 'ai', text: 'I’ve read all 12 sessions of *The Sunken Crown* (D&D 5e). Ask me for a 5e NPC, a CR-balanced encounter, lore, or a rules call — I’ll keep it on-canon and on-the-rules.' },
+    { role: 'ai', text: 'I’m your AETHER co-DM for D&D 5e. Ask me for a 5e NPC, a CR-balanced encounter, lore, or a rules call — tell me about your campaign and I’ll keep it on-theme and on-the-rules.' },
   ])
   const [input, setInput] = useState('')
   const [typing, setTyping] = useState(false)
@@ -105,7 +104,7 @@ export default function CoGMPanel({ onSpawnCard }) {
         </span>
         <div className="min-w-0">
           <p className="text-sm font-semibold leading-tight">AI co-DM</p>
-          <p className="truncate text-[11px] text-white/40">grounded in “The Sunken Crown” · 12 sessions</p>
+          <p className="truncate text-[11px] text-white/40">5e rules · encounters · lore · improv</p>
         </div>
         <span
           title={mode === 'live' ? 'Connected to a live AI model' : 'Scripted demo replies — configure AI_API_KEY for live AI'}
