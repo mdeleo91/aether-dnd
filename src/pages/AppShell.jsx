@@ -19,7 +19,7 @@ import {
 const tools = [
   { type: 'initiative', icon: Swords, label: 'Initiative', w: 330 },
   { type: 'map', icon: Map, label: 'Battle Map', w: 470 },
-  { type: 'party', icon: Users, label: 'Party', w: 340 },
+  { type: 'party', icon: Users, label: 'Party', w: 420 },
   { type: 'npc', icon: Skull, label: 'NPC', w: 320 },
   { type: 'location', icon: MapPin, label: 'Location', w: 340 },
   { type: 'library', icon: Book, label: 'Library', w: 320 },
