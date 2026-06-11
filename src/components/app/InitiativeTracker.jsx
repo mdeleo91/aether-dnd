@@ -2,8 +2,12 @@ import { useState } from 'react'
 import { newId, rollInitiative } from '../../app/generators.js'
 import { aiGenerate } from '../../lib/ai.js'
 import { normalizeMember, initiativeValue, num } from '../../app/dnd5e.js'
-import { Heart, Shield, Skull, ChevronRight, Plus, Sparkles, Users, X, Check } from '../Icons.jsx'
+import { abilityMod as monAbilityMod } from '../../app/monster.js'
+import { Heart, Shield, Skull, Dragon, ChevronRight, Plus, Sparkles, Users, Book, X, Check } from '../Icons.jsx'
 import { useConfirm } from './ConfirmDialog.jsx'
+
+// Parse a signed/loose modifier string ("+2", "-1", "3") to a number.
+const parseMod = (v) => { const n = parseInt(String(v).replace('+', ''), 10); return Number.isFinite(n) ? n : 0 }
 
 // The full official D&D 5e condition list.
 const CONDITIONS = [
@@ -12,11 +16,13 @@ const CONDITIONS = [
   'Restrained', 'Stunned', 'Unconscious',
 ]
 
-export default function InitiativeTracker({ card, onData, party = [] }) {
+export default function InitiativeTracker({ card, onData, party = [], lib }) {
   const data = card.data || { combatants: [], round: 1, turn: 0 }
   const list = data.combatants || []
   const order = [...list].sort((a, b) => b.init - a.init)
   const turn = order.length ? Math.min(data.turn || 0, order.length - 1) : 0
+  const npcLib = lib?.npcLibrary || []
+  const monsterLib = lib?.monsterLibrary || []
 
   const [name, setName] = useState('')
   const [init, setInit] = useState('')
@@ -24,6 +30,8 @@ export default function InitiativeTracker({ card, onData, party = [] }) {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
   const [condFor, setCondFor] = useState(null) // combatant id whose condition picker is open
+  const [libOpen, setLibOpen] = useState(false)
+  const [qty, setQty] = useState({}) // per-bestiary-row quantity
   const confirm = useConfirm()
 
   const set = (patch) => onData(card.id, patch)
@@ -87,6 +95,37 @@ export default function InitiativeTracker({ card, onData, party = [] }) {
     setMsg(added.length ? `Added ${added.length} party member${added.length > 1 ? 's' : ''} (initiative rolled).` : 'Party is already in the tracker.')
   }
 
+  // Insert a saved NPC (character/creature) as a combatant.
+  const addNpcFromLib = (npc) => {
+    const cb = {
+      id: newId('cb'),
+      name: npc.name || 'NPC',
+      sub: npc.type || (npc.cr ? `CR ${npc.cr}` : ''),
+      init: rollInitiative(String(parseMod(npc.abilities?.DEX))),
+      hp: num(npc.hp, 10), maxHp: num(npc.hp, 10), ac: num(npc.ac, 10), kind: 'npc', conditions: [],
+    }
+    setList((l) => [...l, cb])
+    setMsg(`Added ${cb.name}.`)
+  }
+
+  // Insert a saved monster as N numbered combatants (each rolls its own init).
+  const addMonsterFromLib = (monster, n = 1) => {
+    const count = Math.max(1, Math.min(20, n))
+    const mod = monAbilityMod((monster.abilities || {}).DEX)
+    const added = []
+    for (let i = 0; i < count; i++) {
+      added.push({
+        id: newId('cb'),
+        name: count > 1 ? `${monster.name} ${i + 1}` : monster.name,
+        sub: monster.cr ? `CR ${monster.cr}` : monster.type || '',
+        init: rollInitiative(String(mod)),
+        hp: num(monster.hp, 10), maxHp: num(monster.hp, 10), ac: num(monster.ac, 10), kind: 'npc', conditions: [],
+      })
+    }
+    setList((l) => [...l, ...added])
+    setMsg(`Added ${count > 1 ? `${count}× ` : ''}${monster.name}.`)
+  }
+
   const aiEncounter = async () => {
     setBusy(true); setMsg('')
     const res = await aiGenerate('encounter', { difficulty: 'medium', party: 'four level-5 PCs', prompt: data.encPrompt || '' })
@@ -127,6 +166,14 @@ export default function InitiativeTracker({ card, onData, party = [] }) {
             <Users size={12} /> Party
           </button>
           <button
+            onClick={() => { setLibOpen((o) => !o); setMsg('') }}
+            title="Add a saved NPC or monster from your libraries"
+            aria-pressed={libOpen}
+            className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-medium transition ${libOpen ? 'border-rune-300/50 bg-rune-400/15 text-rune-100' : 'border-white/15 text-white/65 hover:text-white'}`}
+          >
+            <Book size={12} /> Library
+          </button>
+          <button
             onClick={aiEncounter}
             disabled={busy}
             title="Generate a 5e encounter with AI"
@@ -150,6 +197,55 @@ export default function InitiativeTracker({ card, onData, party = [] }) {
         placeholder="Optional: guide the AI encounter (e.g. cultist ambush near a ruined shrine)"
         className="mt-2 w-full rounded-md border border-white/10 bg-ink-700 px-2 py-1 text-[11px] text-white placeholder:text-white/30 outline-none focus:border-amethyst-400/50"
       />
+
+      {libOpen && (
+        <div className="mt-2 rounded-lg border border-white/10 bg-ink-800/70 p-2">
+          <div className="mb-1 flex items-center justify-between px-0.5">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-white/40">Add from libraries</span>
+            <button onClick={() => setLibOpen(false)} className="text-white/30 hover:text-white"><X size={12} /></button>
+          </div>
+          <p className="mb-1 flex items-center gap-1 px-0.5 text-[9px] font-semibold uppercase tracking-wider text-amethyst-200/80"><Skull size={10} /> NPCs</p>
+          {npcLib.length === 0 ? (
+            <p className="px-1 pb-1 text-[10px] text-white/35">No saved NPCs. Save one from an NPC card.</p>
+          ) : (
+            <div className="space-y-1">
+              {npcLib.map((row) => (
+                <div key={row.id} className="flex items-center gap-2 rounded border border-white/5 bg-white/[0.02] px-2 py-1">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[11px] text-white/85">{row.npc?.name || 'NPC'}</p>
+                    <p className="truncate text-[9px] text-white/40">{[row.npc?.type, row.npc?.cr ? `CR ${row.npc.cr}` : null, row.npc?.ac ? `AC ${row.npc.ac}` : null, row.npc?.hp ? `HP ${row.npc.hp}` : null].filter(Boolean).join(' · ')}</p>
+                  </div>
+                  <button onClick={() => addNpcFromLib(row.npc)} className="shrink-0 rounded bg-amethyst-400/20 px-2 py-0.5 text-[10px] font-semibold text-amethyst-100 hover:bg-amethyst-400/30">Add</button>
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="mb-1 mt-2 flex items-center gap-1 px-0.5 text-[9px] font-semibold uppercase tracking-wider text-rune-200/80"><Dragon size={10} /> Bestiary</p>
+          {monsterLib.length === 0 ? (
+            <p className="px-1 pb-0.5 text-[10px] text-white/35">No saved monsters. Save one from a Monster / Enemy card.</p>
+          ) : (
+            <div className="space-y-1">
+              {monsterLib.map((row) => {
+                const q = qty[row.id] ?? 1
+                return (
+                  <div key={row.id} className="flex items-center gap-2 rounded border border-white/5 bg-white/[0.02] px-2 py-1">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-rune-400/20 text-rune-100"><Dragon size={11} /></span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[11px] text-white/85">{row.monster?.name || 'Monster'}</p>
+                      <p className="truncate text-[9px] text-white/40">{[row.monster?.cr ? `CR ${row.monster.cr}` : null, row.monster?.ac ? `AC ${row.monster.ac}` : null, row.monster?.hp ? `HP ${row.monster.hp}` : null].filter(Boolean).join(' · ')}</p>
+                    </div>
+                    <span className="flex shrink-0 items-center gap-0.5">
+                      <span className="text-[9px] text-white/30">×</span>
+                      <input value={q} onChange={(e) => setQty((m) => ({ ...m, [row.id]: e.target.value.replace(/[^0-9]/g, '') }))} className="w-7 rounded bg-white/5 px-1 py-0.5 text-center font-mono text-[10px] text-white/85 outline-none" />
+                    </span>
+                    <button onClick={() => addMonsterFromLib(row.monster, num(q, 1))} className="shrink-0 rounded bg-rune-400/25 px-2 py-0.5 text-[10px] font-semibold text-rune-100 hover:bg-rune-400/35">Add</button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {msg && <p className="px-1 pt-2 text-[11px] text-amethyst-200">{msg}</p>}
 

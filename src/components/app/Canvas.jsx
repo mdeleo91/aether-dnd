@@ -8,7 +8,8 @@ import RollCard from './RollCard.jsx'
 import PartyCard from './PartyCard.jsx'
 import LocationCard from './LocationCard.jsx'
 import LibraryCard from './LibraryCard.jsx'
-import { Dice, Map, Bag, Scroll, Swords, Skull, Sparkles, Users, MapPin, Book } from '../Icons.jsx'
+import MonsterCard from './MonsterCard.jsx'
+import { Dice, Map, Bag, Scroll, Swords, Skull, Sparkles, Users, MapPin, Book, Dragon } from '../Icons.jsx'
 
 const ZOOM_MIN = 0.5
 const ZOOM_MAX = 1.6
@@ -179,11 +180,12 @@ const headTints = {
   location: 'text-aether-300',
   party: 'text-aether-300',
   library: 'text-amethyst-300',
+  monster: 'text-rune-300',
   gen: 'text-rune-300',
 }
 const headIcons = {
   initiative: Swords, map: Map, npc: Skull, shop: Bag, notes: Scroll, roll: Dice,
-  location: MapPin, party: Users, library: Book, gen: Sparkles,
+  location: MapPin, party: Users, library: Book, monster: Dragon, gen: Sparkles,
 }
 
 function CanvasCard({ card, active, onHeaderDown, onResizeDown, onClose, onMin, onMax, onData, onPush, lib }) {
@@ -251,7 +253,7 @@ function CanvasCard({ card, active, onHeaderDown, onResizeDown, onClose, onMin, 
 function CardBody({ card, onData, onPush, lib }) {
   switch (card.type) {
     case 'initiative':
-      return <InitiativeTracker card={card} onData={onData} party={lib?.party || []} />
+      return <InitiativeTracker card={card} onData={onData} party={lib?.party || []} lib={lib} />
     case 'map':
       return <MapCard card={card} onData={onData} onPush={onPush} />
     case 'npc':
@@ -268,6 +270,8 @@ function CardBody({ card, onData, onPush, lib }) {
       return <PartyCard card={card} onData={onData} lib={lib} />
     case 'library':
       return <LibraryCard lib={lib} />
+    case 'monster':
+      return <MonsterCard card={card} onData={onData} lib={lib} />
     case 'gen':
       return <GenBody card={card} />
     default:
