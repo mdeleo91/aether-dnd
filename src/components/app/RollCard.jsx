@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { parseDice, rollOnTable, newId } from '../../app/generators.js'
 import { aiGenerate } from '../../lib/ai.js'
+import { GenError, Spinner } from './NpcCard.jsx'
 import { Dice, Sparkles } from '../Icons.jsx'
 
 const PRESETS = ['d20', 'd12', 'd10', 'd8', 'd6', 'd4', 'd100']
@@ -33,7 +34,7 @@ export default function RollCard({ card, onData }) {
     const res = await aiGenerate('rolltable', { theme: theme || 'campaign events', die: data.die || 20 })
     setBusy(false)
     if (res.demo) { setState('demo'); return }
-    if (res.error) { setState(res.error); return }
+    if (res.error) { setState('Generation failed: ' + res.error); return }
     set({ table: res.data, theme })
   }
 
@@ -68,7 +69,7 @@ export default function RollCard({ card, onData }) {
               <span className="truncate text-xs font-medium text-white/85">{data.table.name} <span className="text-white/40">· d{data.table.die}</span></span>
               <div className="flex shrink-0 gap-1">
                 <button onClick={rollTable} className="rounded-md bg-amethyst-400/20 px-2 py-0.5 text-[11px] font-semibold text-amethyst-100 hover:bg-amethyst-400/30">Roll</button>
-                <button onClick={genTable} disabled={busy} className="rounded-md border border-white/10 px-2 py-0.5 text-[11px] text-white/55 hover:text-white disabled:opacity-50">{busy ? '…' : '↻'}</button>
+                <button onClick={genTable} disabled={busy} className="inline-flex items-center gap-1 rounded-md border border-white/10 px-2 py-0.5 text-[11px] text-white/55 hover:text-white disabled:opacity-50">{busy ? <Spinner size={9} /> : '↻'}</button>
               </div>
             </div>
             <p className="mt-1 text-[9px] text-white/30">✦ AI-generated · saved to this device</p>
@@ -78,14 +79,14 @@ export default function RollCard({ card, onData }) {
             {state === 'demo' ? (
               <p className="text-[11px] text-white/55">No AI key configured. Set <span className="font-mono text-amethyst-200">AI_API_KEY</span> in Vercel to generate a table. The dice roller above still works.</p>
             ) : state ? (
-              <p className="text-[11px] text-red-300">{state}</p>
+              <div className="mb-1"><GenError msg={state} /></div>
             ) : null}
             <div className="mt-1 flex items-center gap-1.5">
               <input value={theme} onChange={(e) => setTheme(e.target.value)} placeholder="table theme (e.g. dockside rumors)" className="min-w-0 flex-1 rounded-md border border-white/10 bg-ink-700 px-2 py-1 text-[11px] text-white placeholder:text-white/30 outline-none focus:border-amethyst-400/50" />
               <select value={data.die || 20} onChange={(e) => set({ die: Number(e.target.value) })} className="rounded-md border border-white/10 bg-ink-700 px-1 py-1 text-[11px] text-white/75 outline-none">
                 {[6, 8, 10, 12, 20, 100].map((d) => <option key={d} value={d}>d{d}</option>)}
               </select>
-              <button onClick={genTable} disabled={busy} className="shrink-0 rounded-md bg-gradient-to-r from-aether-300 to-amethyst-400 px-2 py-1 text-[11px] font-semibold text-ink-900 hover:brightness-110 disabled:opacity-50">{busy ? '…' : 'AI'}</button>
+              <button onClick={genTable} disabled={busy} className="inline-flex shrink-0 items-center gap-1 rounded-md bg-gradient-to-r from-aether-300 to-amethyst-400 px-2 py-1 text-[11px] font-semibold text-ink-900 hover:brightness-110 disabled:opacity-50">{busy ? <><Spinner size={9} /> …</> : 'AI'}</button>
             </div>
           </div>
         )}

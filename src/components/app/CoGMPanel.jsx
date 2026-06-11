@@ -60,10 +60,13 @@ export default function CoGMPanel({ onSpawnCard }) {
     setInput('')
     setTyping(true)
 
-    const apiMessages = [...history, { role: 'gm', text: content }].map((m) => ({
-      role: m.role === 'gm' ? 'user' : 'assistant',
-      content: m.text,
-    }))
+    // Build the provider message list. Only user/assistant turns count, and the
+    // Anthropic API requires the conversation to START with a user turn — so we
+    // drop any leading assistant turns (e.g. the co-DM's opening greeting).
+    const apiMessages = [...history, { role: 'gm', text: content }]
+      .filter((m) => m.role === 'gm' || m.role === 'ai')
+      .map((m) => ({ role: m.role === 'gm' ? 'user' : 'assistant', content: m.text }))
+    while (apiMessages.length && apiMessages[0].role === 'assistant') apiMessages.shift()
 
     try {
       const r = await fetch('/api/cogm', {
@@ -71,19 +74,25 @@ export default function CoGMPanel({ onSpawnCard }) {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ system: SYSTEM_PROMPT, messages: apiMessages }),
       })
-      if (r.ok) {
-        const j = await r.json()
-        if (j.reply) {
-          setMode('live')
-          setTyping(false)
-          setMsgs((m) => [...m, { role: 'ai', text: j.reply }])
-          return
-        }
+      const j = await r.json().catch(() => ({}))
+      if (r.ok && j.reply) {
+        setMode('live')
+        setTyping(false)
+        setMsgs((m) => [...m, { role: 'ai', text: j.reply }])
+        return
       }
-    } catch {
-      // network error / no backend in local dev → demo fallback
+      // No AI key configured on the server → use the scripted demo reply.
+      if (r.ok && j.demo) {
+        demoReply()
+        return
+      }
+      // A real API error (bad model, no credits, etc.) — surface it, don't hide it.
+      setTyping(false)
+      setMsgs((m) => [...m, { role: 'error', text: 'Generation failed: ' + (j.error || `Request failed (${r.status})`) }])
+    } catch (e) {
+      setTyping(false)
+      setMsgs((m) => [...m, { role: 'error', text: 'Generation failed: ' + (e?.message || 'Network error') }])
     }
-    demoReply()
   }
 
   return (
@@ -132,6 +141,16 @@ export default function CoGMPanel({ onSpawnCard }) {
               m.role === 'gm' ? (
                 <div key={i} className="ml-7 rounded-2xl rounded-br-md bg-amethyst-500/25 px-3.5 py-2.5 text-sm text-white/90">
                   {m.text}
+                </div>
+              ) : m.role === 'error' ? (
+                <div key={i} className="mr-3">
+                  <div className="flex items-center gap-1.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-red-300">
+                    <Sparkles size={11} /> co-DM
+                  </div>
+                  <div className="flex items-start gap-1.5 rounded-2xl rounded-bl-md border border-red-400/30 bg-red-500/10 px-3.5 py-2.5 text-sm leading-relaxed text-red-200">
+                    <span className="shrink-0">⚠</span>
+                    <span className="min-w-0 break-words">{m.text}</span>
+                  </div>
                 </div>
               ) : (
                 <div key={i} className="mr-3">

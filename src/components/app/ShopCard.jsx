@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { aiGenerate } from '../../lib/ai.js'
 import { Bag } from '../Icons.jsx'
-import { Empty } from './NpcCard.jsx'
+import { Empty, GenError, Spinner } from './NpcCard.jsx'
 
 const TYPES = ['General store', 'Magic shop', 'Alchemist', 'Blacksmith', 'Tavern', 'Black market']
 const LEVELS = ['Poor', 'Standard', 'Rich']
@@ -21,7 +21,7 @@ export default function ShopCard({ card, onData }) {
     const res = await aiGenerate('shop', { shopType: data.shopType, level: data.level, count })
     setBusy(false)
     if (res.demo) { setState('demo'); return }
-    if (res.error) { setState(res.error); return }
+    if (res.error) { setState('Generation failed: ' + res.error); return }
     set({ items: res.data?.items || [], shopName: res.data?.shopName || data.shopName })
   }
 
@@ -33,8 +33,8 @@ export default function ShopCard({ card, onData }) {
       <select value={data.level} onChange={(e) => set({ level: e.target.value })} className="rounded-md border border-white/10 bg-ink-700 px-1.5 py-1 text-[11px] text-white/75 outline-none">
         {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
       </select>
-      <button onClick={reroll} disabled={busy} className="shrink-0 rounded-md bg-gradient-to-r from-aether-300 to-amethyst-400 px-2 py-1 text-[11px] font-semibold text-ink-900 transition hover:brightness-110 disabled:opacity-50">
-        {busy ? '…' : '↻ Reroll'}
+      <button onClick={reroll} disabled={busy} className="inline-flex shrink-0 items-center gap-1 rounded-md bg-gradient-to-r from-aether-300 to-amethyst-400 px-2 py-1 text-[11px] font-semibold text-ink-900 transition hover:brightness-110 disabled:opacity-50">
+        {busy ? <><Spinner size={10} /> …</> : '↻ Reroll'}
       </button>
     </div>
   )
@@ -52,7 +52,7 @@ export default function ShopCard({ card, onData }) {
     <div>
       {controls}
       {data.shopName && <p className="mb-1.5 font-display text-sm text-white/85">{data.shopName}</p>}
-      {state && state !== 'demo' && <p className="mb-1 text-[10px] text-red-300">{state}</p>}
+      {state && state !== 'demo' && <div className="mb-1.5"><GenError msg={state} /></div>}
       <div className="space-y-1.5">
         {items.map((it, i) => (
           <div key={i} className="flex items-center justify-between rounded-lg bg-white/[0.03] px-2.5 py-1.5">
