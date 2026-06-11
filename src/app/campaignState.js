@@ -62,7 +62,7 @@ export function defaultCampaign(name = 'New Campaign', opts = {}) {
           makeCard('initiative', 40, 60, 330),
           makeCard('map', 420, 40, 470),
           makeCard('npc', 930, 70, 320),
-          makeCard('party', 70, 470, 340),
+          makeCard('party', 70, 470, 420),
           makeCard('notes', 480, 540, 360),
           makeCard('roll', 930, 470, 330),
         ],
