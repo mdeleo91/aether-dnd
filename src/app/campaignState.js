@@ -22,6 +22,8 @@ export function defaultData(type) {
       return { theme: '', die: 20, table: null, history: [] }
     case 'location':
       return { location: null, kind: '', note: '' }
+    case 'monster':
+      return { monster: null, mode: 'search', query: '', results: [] }
     case 'party':
       // Party roster lives at the campaign level (shared with initiative); the
       // card is just a view, so it needs no per-card data.
@@ -43,11 +45,12 @@ export const TOOL_TITLES = {
   location: 'Location',
   party: 'Party',
   library: 'Library',
+  monster: 'Monster / Enemy',
 }
 
 // A few tools open large enough that a fixed starter height (with internal
 // scroll) reads better than auto-growing — e.g. the full character sheet.
-const DEFAULT_HEIGHT = { party: 640 }
+const DEFAULT_HEIGHT = { party: 640, monster: 560 }
 
 export function makeCard(type, x, y, w) {
   return { id: newId('c'), type, x, y, w, h: DEFAULT_HEIGHT[type], title: TOOL_TITLES[type] || 'Card', data: defaultData(type) }
@@ -73,6 +76,7 @@ export function defaultCampaign(name = 'New Campaign', opts = {}) {
     player: { on: false, pushed: null },
     party: [],
     npcLibrary: [],
+    monsterLibrary: [],
     locationLibrary: [],
   }
 }
@@ -88,6 +92,7 @@ export function normalizeCampaign(c, fallbackName = 'Campaign') {
     player: c.player || { on: false, pushed: null },
     party: Array.isArray(c.party) ? c.party : [],
     npcLibrary: Array.isArray(c.npcLibrary) ? c.npcLibrary : [],
+    monsterLibrary: Array.isArray(c.monsterLibrary) ? c.monsterLibrary : [],
     locationLibrary: Array.isArray(c.locationLibrary) ? c.locationLibrary : [],
   }
 }
