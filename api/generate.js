@@ -132,7 +132,13 @@ export default async function handler(req, res) {
   // while the structured JSON shape is preserved. When empty, generation is
   // fully random (unchanged behavior).
   const guide = (params.prompt ?? params.userPrompt ?? '').toString().trim().slice(0, 600)
-  const baseText = isCharSheet ? CHARSHEET_PROMPT : build(params, campaign)
+  // Campaign context only steers output when the caller actually provided it.
+  // With no campaign, push for FRESH, DISTINCT, varied results so generation is
+  // never anchored to a built-in setting. The guiding prompt remains the way to
+  // theme a single result.
+  const campaignCtx = (campaign || '').toString().trim() ||
+    'a fresh D&D 5e campaign with NO preset setting — invent a NEW and DISTINCT concept each time, varying names, locales, tone and themes; do NOT reuse any single recurring place or storyline'
+  const baseText = isCharSheet ? CHARSHEET_PROMPT : build(params, campaignCtx)
   const userText =
     !isCharSheet && guide
       ? `${baseText} IMPORTANT — the user wants this to match the following request: "${guide}". Honor this guidance closely while still returning ONLY the exact JSON shape described above.`
