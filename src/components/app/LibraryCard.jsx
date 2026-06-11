@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Skull, MapPin, Plus, X } from '../Icons.jsx'
+import { useConfirm } from './ConfirmDialog.jsx'
 
 // Per-campaign library browser: saved NPCs and saved Locations, each with
 // "add to canvas" (re-open) and remove.
@@ -7,6 +8,7 @@ export default function LibraryCard({ lib }) {
   const [tab, setTab] = useState('npc')
   const npcs = lib?.npcLibrary || []
   const locs = lib?.locationLibrary || []
+  const confirm = useConfirm()
 
   return (
     <div className="flex h-full flex-col">
@@ -26,7 +28,7 @@ export default function LibraryCard({ lib }) {
                 title={row.npc?.name || 'NPC'}
                 meta={[row.npc?.type, row.npc?.cr ? `CR ${row.npc.cr}` : null].filter(Boolean).join(' · ')}
                 onAdd={() => lib.addNpcCardFromLibrary(row.npc)}
-                onRemove={() => lib.removeNpcFromLibrary(row.id)}
+                onRemove={async () => { if (await confirm({ title: 'Remove NPC?', body: `Remove “${row.npc?.name || 'this NPC'}” from the library? This can't be undone.`, confirmLabel: 'Remove' })) lib.removeNpcFromLibrary(row.id) }}
               />
             ))
           )
@@ -39,7 +41,7 @@ export default function LibraryCard({ lib }) {
               title={row.location?.name || 'Location'}
               meta={row.location?.type || ''}
               onAdd={() => lib.addLocationCardFromLibrary(row.location)}
-              onRemove={() => lib.removeLocationFromLibrary(row.id)}
+              onRemove={async () => { if (await confirm({ title: 'Remove location?', body: `Remove “${row.location?.name || 'this location'}” from the library? This can't be undone.`, confirmLabel: 'Remove' })) lib.removeLocationFromLibrary(row.id) }}
             />
           ))
         )}

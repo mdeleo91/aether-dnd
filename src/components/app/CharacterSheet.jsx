@@ -4,6 +4,7 @@ import {
   normalizeMember, profBonusForLevel,
 } from '../../app/dnd5e.js'
 import { ChevronRight, X, Plus } from '../Icons.jsx'
+import { useConfirm } from './ConfirmDialog.jsx'
 
 const PAGES = ['Core', 'Details', 'Spells']
 
@@ -26,6 +27,13 @@ const SHEET_STYLE = {
 export default function CharacterSheet({ member, lib, onBack }) {
   const c = normalizeMember(member)
   const set = (patch) => lib.updatePartyMember(c.id, patch)
+  const confirm = useConfirm()
+  const deleteCharacter = async () => {
+    if (await confirm({ title: 'Delete character?', body: `Delete “${c.name || 'this character'}”? This can't be undone.`, confirmLabel: 'Delete character' })) {
+      lib.removePartyMember(c.id)
+      onBack()
+    }
+  }
   const page = c._page
   const goPage = (p) => set({ _page: Math.max(0, Math.min(2, p)) })
 
@@ -51,7 +59,7 @@ export default function CharacterSheet({ member, lib, onBack }) {
           <ChevronRight size={12} className="rotate-180" /> Roster
         </button>
         <input value={c.name} onChange={(e) => set({ name: e.target.value })} placeholder="Character name" className="min-w-0 flex-1 rounded bg-transparent font-display text-base text-white outline-none focus:bg-white/5" />
-        <button onClick={() => { lib.removePartyMember(c.id); onBack() }} title="Delete character" className="shrink-0 text-white/30 hover:text-red-300"><X size={14} /></button>
+        <button onClick={deleteCharacter} title="Delete character" className="shrink-0 text-white/30 hover:text-red-300"><X size={14} /></button>
       </div>
       <div className="flex items-center justify-center gap-1.5">
         <button onClick={() => goPage(page - 1)} disabled={page === 0} className="rounded-md border border-white/10 px-1.5 py-1 text-white/55 transition hover:text-white disabled:opacity-30"><ChevronRight size={13} className="rotate-180" /></button>

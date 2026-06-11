@@ -2,12 +2,14 @@ import { useState } from 'react'
 import { newId, rollInitiative } from '../../app/generators.js'
 import { aiGenerate } from '../../lib/ai.js'
 import { normalizeMember, initiativeValue, num } from '../../app/dnd5e.js'
-import { Heart, Shield, Skull, ChevronRight, Plus, Sparkles, Users, X } from '../Icons.jsx'
+import { Heart, Shield, Skull, ChevronRight, Plus, Sparkles, Users, X, Check } from '../Icons.jsx'
+import { useConfirm } from './ConfirmDialog.jsx'
 
+// The full official D&D 5e condition list.
 const CONDITIONS = [
-  'Blessed', 'Bloodied', 'Blinded', 'Charmed', 'Concentrating', 'Frightened',
-  'Grappled', 'Invisible', 'Paralyzed', 'Poisoned', 'Prone', 'Restrained',
-  'Stunned', 'Unconscious',
+  'Blinded', 'Charmed', 'Deafened', 'Exhaustion', 'Frightened', 'Grappled',
+  'Incapacitated', 'Invisible', 'Paralyzed', 'Petrified', 'Poisoned', 'Prone',
+  'Restrained', 'Stunned', 'Unconscious',
 ]
 
 export default function InitiativeTracker({ card, onData, party = [] }) {
@@ -21,6 +23,8 @@ export default function InitiativeTracker({ card, onData, party = [] }) {
   const [hp, setHp] = useState('')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
+  const [condFor, setCondFor] = useState(null) // combatant id whose condition picker is open
+  const confirm = useConfirm()
 
   const set = (patch) => onData(card.id, patch)
   const setList = (fn) => set({ combatants: fn(list) })
@@ -44,17 +48,21 @@ export default function InitiativeTracker({ card, onData, party = [] }) {
     setName(''); setInit(''); setHp('')
   }
 
-  const remove = (id) => setList((l) => l.filter((c) => c.id !== id))
+  const remove = async (cb) => {
+    if (await confirm({ title: 'Remove combatant?', body: `Remove “${cb.name}” from the initiative order?`, confirmLabel: 'Remove' })) {
+      setList((l) => l.filter((c) => c.id !== cb.id))
+    }
+  }
   const setHpFor = (id, val) =>
     setList((l) => l.map((c) => (c.id === id ? { ...c, hp: Math.max(0, Math.min(c.maxHp, val)) } : c)))
   const bump = (id, d) => setList((l) => l.map((c) => (c.id === id ? { ...c, hp: Math.max(0, Math.min(c.maxHp, c.hp + d)) } : c)))
   const toggleCond = (id, cond) =>
     setList((l) =>
-      l.map((c) =>
-        c.id === id
-          ? { ...c, conditions: c.conditions.includes(cond) ? c.conditions.filter((x) => x !== cond) : [...c.conditions, cond] }
-          : c,
-      ),
+      l.map((c) => {
+        if (c.id !== id) return c
+        const conds = c.conditions || []
+        return { ...c, conditions: conds.includes(cond) ? conds.filter((x) => x !== cond) : [...conds, cond] }
+      }),
     )
 
   const addParty = () => {
@@ -163,7 +171,13 @@ export default function InitiativeTracker({ card, onData, party = [] }) {
               } ${down ? 'opacity-50' : ''}`}
             >
               <div className="flex items-center gap-2">
-                <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md font-mono text-xs ${c.kind === 'pc' ? 'bg-aether-500/30 text-aether-100' : 'bg-rune-400/25 text-rune-100'}`}>{c.init}</span>
+                <button
+                  onClick={() => setCondFor((id) => (id === c.id ? null : c.id))}
+                  title="Click to set conditions"
+                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md font-mono text-xs transition ${c.kind === 'pc' ? 'bg-aether-500/30 text-aether-100' : 'bg-rune-400/25 text-rune-100'} ${condFor === c.id ? 'ring-2 ring-amethyst-400/70' : 'hover:ring-1 hover:ring-white/40'}`}
+                >
+                  {c.init}
+                </button>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
                     <span className={`truncate text-sm font-medium ${down ? 'line-through' : ''}`}>{c.name}</span>
@@ -184,21 +198,38 @@ export default function InitiativeTracker({ card, onData, party = [] }) {
                     />
                     <button onClick={() => bump(c.id, 1)} className="h-5 w-5 rounded bg-white/5 text-xs text-white/60 hover:bg-white/10">+</button>
                     <span className="flex shrink-0 items-center gap-0.5 text-[10px] text-white/45"><Shield size={10} />{c.ac}</span>
-                    <button onClick={() => remove(c.id)} title="Remove" className="text-white/30 hover:text-red-300"><X size={12} /></button>
+                    <button onClick={() => remove(c)} title="Remove" className="text-white/30 hover:text-red-300"><X size={12} /></button>
                   </div>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                    {c.conditions.map((s) => (
-                      <button key={s} onClick={() => toggleCond(c.id, s)} title="Remove condition" className="rounded-full bg-amethyst-400/20 px-1.5 py-0.5 text-[9px] font-medium text-amethyst-100 hover:bg-amethyst-400/30">{s} ×</button>
-                    ))}
-                    <select
-                      value=""
-                      onChange={(e) => { if (e.target.value) toggleCond(c.id, e.target.value) }}
-                      className="rounded-full border border-white/10 bg-ink-700 px-1.5 py-0.5 text-[9px] text-white/55 outline-none"
-                    >
-                      <option value="">+ cond</option>
-                      {CONDITIONS.filter((x) => !c.conditions.includes(x)).map((x) => <option key={x} value={x}>{x}</option>)}
-                    </select>
-                  </div>
+                  {(c.conditions || []).length > 0 && (
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                      {(c.conditions || []).map((s) => (
+                        <button key={s} onClick={() => toggleCond(c.id, s)} title="Click to remove condition" className="inline-flex items-center gap-1 rounded-full bg-amethyst-400/20 px-1.5 py-0.5 text-[9px] font-medium text-amethyst-100 transition hover:bg-amethyst-400/30">{s} <X size={8} /></button>
+                      ))}
+                    </div>
+                  )}
+                  {condFor === c.id && (
+                    <div className="mt-1.5 rounded-lg border border-white/10 bg-ink-900/70 p-1.5">
+                      <div className="mb-1 flex items-center justify-between px-1">
+                        <span className="text-[9px] font-semibold uppercase tracking-wider text-white/40">Conditions</span>
+                        <button onClick={() => setCondFor(null)} title="Close" className="text-white/30 hover:text-white"><X size={11} /></button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-0.5">
+                        {CONDITIONS.map((cond) => {
+                          const on = (c.conditions || []).includes(cond)
+                          return (
+                            <button
+                              key={cond}
+                              onClick={() => toggleCond(c.id, cond)}
+                              className={`flex items-center gap-1.5 rounded px-1.5 py-1 text-left text-[10px] transition ${on ? 'bg-amethyst-400/20 text-amethyst-100' : 'text-white/60 hover:bg-white/5'}`}
+                            >
+                              <span className={`flex h-3 w-3 shrink-0 items-center justify-center rounded-[3px] border ${on ? 'border-amethyst-400 bg-amethyst-400' : 'border-white/25'}`}>{on ? <Check size={8} className="text-ink-900" /> : null}</span>
+                              <span className="truncate">{cond}</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
