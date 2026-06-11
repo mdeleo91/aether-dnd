@@ -30,7 +30,7 @@ export default function PlayerView() {
       <header className="z-10 flex h-14 shrink-0 items-center gap-3 border-b border-white/5 bg-ink-800/80 px-4 backdrop-blur">
         <Logo withWordmark={false} />
         <div className="flex items-center gap-2 text-sm">
-          <span className="font-medium text-white/90">The Sunken Crown</span>
+          <span className="font-medium text-white/90">{view?.campaignName || 'Live Session'}</span>
           <span className="rounded-md bg-aether-300/15 px-1.5 py-0.5 font-mono text-[10px] text-aether-100">{code}</span>
         </div>
         <div className="ml-auto flex items-center gap-3">

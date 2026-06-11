@@ -40,8 +40,8 @@ function bootstrap(userKey) {
     const id = newId('camp')
     const seed =
       legacy && legacy.cards
-        ? normalizeCampaign({ ...legacy, name: legacy.name || 'The Sunken Crown' }, 'The Sunken Crown')
-        : defaultCampaign('The Sunken Crown')
+        ? normalizeCampaign({ ...legacy, name: legacy.name || 'My Campaign' }, 'My Campaign')
+        : defaultCampaign('My Campaign')
     saveCampaignNow(userKey, id, seed)
     index = { campaigns: [{ id, name: seed.name, createdAt: Date.now() }], currentId: id }
     saveCampaignsIndex(userKey, index)
