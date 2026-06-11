@@ -47,7 +47,7 @@ export const TOOL_TITLES = {
 
 // A few tools open large enough that a fixed starter height (with internal
 // scroll) reads better than auto-growing — e.g. the full character sheet.
-const DEFAULT_HEIGHT = { party: 540 }
+const DEFAULT_HEIGHT = { party: 640 }
 
 export function makeCard(type, x, y, w) {
   return { id: newId('c'), type, x, y, w, h: DEFAULT_HEIGHT[type], title: TOOL_TITLES[type] || 'Card', data: defaultData(type) }
@@ -66,7 +66,7 @@ export function defaultCampaign(name = 'New Campaign', opts = {}) {
           makeCard('initiative', 40, 60, 330),
           makeCard('map', 420, 40, 470),
           makeCard('npc', 930, 70, 320),
-          makeCard('party', 70, 470, 460),
+          makeCard('party', 70, 470, 600),
           makeCard('notes', 480, 540, 360),
           makeCard('roll', 930, 470, 330),
         ],
