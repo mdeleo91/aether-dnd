@@ -1,12 +1,8 @@
 import { useState } from 'react'
 import { newId, rollInitiative } from '../../app/generators.js'
 import { aiGenerate } from '../../lib/ai.js'
+import { normalizeMember, initiativeValue, num } from '../../app/dnd5e.js'
 import { Heart, Shield, Skull, ChevronRight, Plus, Sparkles, Users, X } from '../Icons.jsx'
-
-const abilityMod = (score) => {
-  const n = parseInt(score, 10)
-  return Number.isFinite(n) ? Math.floor((n - 10) / 2) : 0
-}
 
 const CONDITIONS = [
   'Blessed', 'Bloodied', 'Blinded', 'Charmed', 'Concentrating', 'Frightened',
@@ -66,15 +62,16 @@ export default function InitiativeTracker({ card, onData, party = [] }) {
     if (!party.length) { setMsg('No party members yet — add them in the Party panel.'); return }
     const existing = new Set(list.map((c) => c.name))
     const added = party
+      .map(normalizeMember)
       .filter((p) => !existing.has(p.name))
       .map((p) => ({
         id: newId('cb'),
         name: p.name,
-        sub: `Lv ${p.level || 1} ${p.class || ''}`.trim(),
-        init: rollInitiative(String(abilityMod(p.abilities?.DEX))),
-        hp: p.hp || p.maxHp || 10,
-        maxHp: p.maxHp || p.hp || 10,
-        ac: p.ac || 10,
+        sub: p.classes || `Lv ${p.level || 1}`,
+        init: rollInitiative(String(initiativeValue(p))),
+        hp: num(p.hp || p.maxHp, 10),
+        maxHp: num(p.maxHp || p.hp, 10),
+        ac: num(p.ac, 10),
         kind: 'pc',
         conditions: [],
       }))
