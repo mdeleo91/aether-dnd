@@ -14,7 +14,7 @@ import { publishPlayer } from '../lib/playerSync.js'
 import { defaultCampaign, normalizeCampaign, makeCard, CAMPAIGN_VERSION } from '../app/campaignState.js'
 import { newId } from '../app/generators.js'
 import {
-  Swords, Map, Dice, Scroll, Skull, Brain, Users, Search, MapPin, Book, Bag,
+  Swords, Map, Dice, Scroll, Skull, Brain, Users, Search, MapPin, Book, Bag, Dragon,
   Plus, ChevronRight, Sparkles, Globe, Expand, Shrink, LogOut, X, Check,
 } from '../components/Icons.jsx'
 
@@ -23,6 +23,7 @@ const tools = [
   { type: 'map', icon: Map, label: 'Battle Map', w: 470 },
   { type: 'party', icon: Users, label: 'Party', w: 600, modal: true },
   { type: 'npc', icon: Skull, label: 'NPC', w: 320 },
+  { type: 'monster', icon: Dragon, label: 'Monster / Enemy', w: 380 },
   { type: 'location', icon: MapPin, label: 'Location', w: 340 },
   { type: 'library', icon: Book, label: 'Library', w: 320 },
   { type: 'shop', icon: Bag, label: 'Shop', w: 350 },
@@ -159,17 +160,21 @@ export default function AppShell() {
   const lib = useMemo(() => ({
     party: campaign.party || [],
     npcLibrary: campaign.npcLibrary || [],
+    monsterLibrary: campaign.monsterLibrary || [],
     locationLibrary: campaign.locationLibrary || [],
     addPartyMember: (m) => setCampaign((c) => ({ ...c, party: [...(c.party || []), { id: newId('pc'), ...m }] })),
     updatePartyMember: (id, patch) => setCampaign((c) => ({ ...c, party: (c.party || []).map((p) => (p.id === id ? { ...p, ...patch } : p)) })),
     removePartyMember: (id) => setCampaign((c) => ({ ...c, party: (c.party || []).filter((p) => p.id !== id) })),
     saveNpcToLibrary: (npc) => setCampaign((c) => ({ ...c, npcLibrary: [{ id: newId('npc'), savedAt: Date.now(), npc }, ...(c.npcLibrary || [])] })),
     removeNpcFromLibrary: (id) => setCampaign((c) => ({ ...c, npcLibrary: (c.npcLibrary || []).filter((n) => n.id !== id) })),
+    saveMonsterToBestiary: (monster) => setCampaign((c) => ({ ...c, monsterLibrary: [{ id: newId('mon'), savedAt: Date.now(), monster }, ...(c.monsterLibrary || [])] })),
+    removeMonsterFromBestiary: (id) => setCampaign((c) => ({ ...c, monsterLibrary: (c.monsterLibrary || []).filter((m) => m.id !== id) })),
     saveLocationToLibrary: (location) => setCampaign((c) => ({ ...c, locationLibrary: [{ id: newId('loc'), savedAt: Date.now(), location }, ...(c.locationLibrary || [])] })),
     removeLocationFromLibrary: (id) => setCampaign((c) => ({ ...c, locationLibrary: (c.locationLibrary || []).filter((l) => l.id !== id) })),
     addNpcCardFromLibrary: (npc) => setCards((cs) => [...cs, { ...makeCard('npc', 160 + Math.random() * 160, 140 + Math.random() * 120, 320), data: { npc } }]),
+    addMonsterCardFromLibrary: (monster) => setCards((cs) => [...cs, { ...makeCard('monster', 160 + Math.random() * 160, 140 + Math.random() * 120, 380), data: { monster, mode: 'search', query: '', results: [] } }]),
     addLocationCardFromLibrary: (location) => setCards((cs) => [...cs, { ...makeCard('location', 160 + Math.random() * 160, 140 + Math.random() * 120, 340), data: { location, kind: '', note: '' } }]),
-  }), [campaign.party, campaign.npcLibrary, campaign.locationLibrary])
+  }), [campaign.party, campaign.npcLibrary, campaign.monsterLibrary, campaign.locationLibrary])
 
   // ---- campaign operations ------------------------------------------------
   const switchCampaign = (id) => {
