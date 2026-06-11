@@ -16,7 +16,7 @@ export default function LocationCard({ card, onData, lib }) {
 
   const generate = async () => {
     setBusy(true); setState(''); setSaved(false)
-    const res = await aiGenerate('location', { kind: data.kind || 'any', note: data.note || '' })
+    const res = await aiGenerate('location', { kind: data.kind || 'any', prompt: data.note || '' })
     setBusy(false)
     if (res.demo) { setState('demo'); return }
     if (res.error) { setState('Generation failed: ' + res.error); return }
@@ -35,7 +35,7 @@ export default function LocationCard({ card, onData, lib }) {
       <select value={data.kind || 'any'} onChange={(e) => set({ kind: e.target.value })} className="rounded-md border border-white/10 bg-ink-700 px-1.5 py-1 text-[11px] text-white/75 outline-none">
         {BIOMES.map((b) => <option key={b} value={b}>{b}</option>)}
       </select>
-      <input value={data.note || ''} onChange={(e) => set({ note: e.target.value })} placeholder="hint (e.g. smuggler hideout)" className="min-w-0 flex-1 rounded-md border border-white/10 bg-ink-700 px-2 py-1 text-[11px] text-white placeholder:text-white/30 outline-none focus:border-amethyst-400/50" />
+      <input value={data.note || ''} onChange={(e) => set({ note: e.target.value })} placeholder="Optional: e.g. a fog-bound seaside smuggler town" className="min-w-0 flex-1 rounded-md border border-white/10 bg-ink-700 px-2 py-1 text-[11px] text-white placeholder:text-white/30 outline-none focus:border-amethyst-400/50" />
       <button onClick={generate} disabled={busy} className="inline-flex shrink-0 items-center gap-1 rounded-md bg-gradient-to-r from-aether-300 to-amethyst-400 px-2 py-1 text-[11px] font-semibold text-ink-900 transition hover:brightness-110 disabled:opacity-50">
         {busy ? <><Spinner size={10} /> …</> : loc ? '↻' : 'Generate'}
       </button>

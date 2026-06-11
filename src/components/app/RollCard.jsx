@@ -31,7 +31,7 @@ export default function RollCard({ card, onData }) {
 
   const genTable = async () => {
     setBusy(true); setState('')
-    const res = await aiGenerate('rolltable', { theme: theme || 'campaign events', die: data.die || 20 })
+    const res = await aiGenerate('rolltable', { die: data.die || 20, prompt: theme || '' })
     setBusy(false)
     if (res.demo) { setState('demo'); return }
     if (res.error) { setState('Generation failed: ' + res.error); return }
@@ -82,7 +82,7 @@ export default function RollCard({ card, onData }) {
               <div className="mb-1"><GenError msg={state} /></div>
             ) : null}
             <div className="mt-1 flex items-center gap-1.5">
-              <input value={theme} onChange={(e) => setTheme(e.target.value)} placeholder="table theme (e.g. dockside rumors)" className="min-w-0 flex-1 rounded-md border border-white/10 bg-ink-700 px-2 py-1 text-[11px] text-white placeholder:text-white/30 outline-none focus:border-amethyst-400/50" />
+              <input value={theme} onChange={(e) => setTheme(e.target.value)} placeholder="Optional: e.g. wilderness encounters in a haunted swamp" className="min-w-0 flex-1 rounded-md border border-white/10 bg-ink-700 px-2 py-1 text-[11px] text-white placeholder:text-white/30 outline-none focus:border-amethyst-400/50" />
               <select value={data.die || 20} onChange={(e) => set({ die: Number(e.target.value) })} className="rounded-md border border-white/10 bg-ink-700 px-1 py-1 text-[11px] text-white/75 outline-none">
                 {[6, 8, 10, 12, 20, 100].map((d) => <option key={d} value={d}>d{d}</option>)}
               </select>

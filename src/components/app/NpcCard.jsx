@@ -9,10 +9,12 @@ export default function NpcCard({ card, onData, lib }) {
   const [busy, setBusy] = useState(false)
   const [state, setState] = useState('') // '' | 'demo' | error message
   const [saved, setSaved] = useState(false)
+  const prompt = card.data?.prompt || ''
+  const setPrompt = (v) => onData(card.id, { prompt: v })
 
   const generate = async () => {
     setBusy(true); setState(''); setSaved(false)
-    const res = await aiGenerate('npc', { role: 'any' })
+    const res = await aiGenerate('npc', { role: 'any', prompt })
     setBusy(false)
     if (res.demo) { setState('demo'); return }
     if (res.error) { setState('Generation failed: ' + res.error); return }
@@ -30,7 +32,11 @@ export default function NpcCard({ card, onData, lib }) {
 
   if (!npc) {
     return (
-      <Empty busy={busy} state={state} onGenerate={generate} label="NPC / monster" icon={Skull} />
+      <Empty
+        busy={busy} state={state} onGenerate={generate} label="NPC / monster" icon={Skull}
+        prompt={prompt} onPrompt={setPrompt}
+        promptPlaceholder="Optional: e.g. a grizzled dwarf blacksmith with a secret"
+      />
     )
   }
 
@@ -56,7 +62,13 @@ export default function NpcCard({ card, onData, lib }) {
         onChange={(e) => edit({ type: e.target.value })}
         className="mt-0.5 w-full rounded bg-transparent text-[11px] text-white/45 outline-none focus:bg-white/5"
       />
-      {state && state !== 'demo' && <GenError msg={state} />}
+      <input
+        value={prompt}
+        onChange={(e) => setPrompt(e.target.value)}
+        placeholder="Optional: guide regeneration (↻ AI)…"
+        className="mt-1.5 w-full rounded-md border border-white/10 bg-ink-700 px-2 py-1 text-[10px] text-white/85 placeholder:text-white/30 outline-none focus:border-amethyst-400/50"
+      />
+      {state && state !== 'demo' && <div className="mt-1"><GenError msg={state} /></div>}
 
       <div className="mt-2 grid grid-cols-3 gap-1.5 text-center">
         {[['AC', 'ac'], ['HP', 'hp'], ['CR', 'cr']].map(([lbl, k]) => (
@@ -101,7 +113,7 @@ export default function NpcCard({ card, onData, lib }) {
   )
 }
 
-export function Empty({ busy, state, onGenerate, label, icon: Icon }) {
+export function Empty({ busy, state, onGenerate, label, icon: Icon, prompt, onPrompt, promptPlaceholder }) {
   const isError = state && state !== 'demo'
   return (
     <div className="flex flex-col items-center justify-center gap-3 px-2 py-6 text-center">
@@ -118,6 +130,14 @@ export function Empty({ busy, state, onGenerate, label, icon: Icon }) {
         <p className="text-xs text-amethyst-100/80">Generating your {label}…</p>
       ) : (
         <p className="text-xs text-white/45">Generate a {label} with AI for your campaign.</p>
+      )}
+      {onPrompt && (
+        <input
+          value={prompt || ''}
+          onChange={(e) => onPrompt(e.target.value)}
+          placeholder={promptPlaceholder || 'Optional: describe what you want…'}
+          className="w-full max-w-[280px] rounded-md border border-white/10 bg-ink-700 px-2.5 py-1.5 text-[11px] text-white placeholder:text-white/30 outline-none focus:border-amethyst-400/50"
+        />
       )}
       <button
         onClick={onGenerate}

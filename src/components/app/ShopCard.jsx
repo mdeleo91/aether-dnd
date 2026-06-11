@@ -18,7 +18,7 @@ export default function ShopCard({ card, onData }) {
   const reroll = async () => {
     setBusy(true); setState('')
     const count = data.level === 'Poor' ? 4 : data.level === 'Rich' ? 9 : 6
-    const res = await aiGenerate('shop', { shopType: data.shopType, level: data.level, count })
+    const res = await aiGenerate('shop', { shopType: data.shopType, level: data.level, count, prompt: data.prompt || '' })
     setBusy(false)
     if (res.demo) { setState('demo'); return }
     if (res.error) { setState('Generation failed: ' + res.error); return }
@@ -26,16 +26,24 @@ export default function ShopCard({ card, onData }) {
   }
 
   const controls = (
-    <div className="mb-2 flex items-center gap-1.5">
-      <select value={data.shopType} onChange={(e) => set({ shopType: e.target.value })} className="min-w-0 flex-1 rounded-md border border-white/10 bg-ink-700 px-1.5 py-1 text-[11px] text-white/75 outline-none">
-        {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-      </select>
-      <select value={data.level} onChange={(e) => set({ level: e.target.value })} className="rounded-md border border-white/10 bg-ink-700 px-1.5 py-1 text-[11px] text-white/75 outline-none">
-        {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
-      </select>
-      <button onClick={reroll} disabled={busy} className="inline-flex shrink-0 items-center gap-1 rounded-md bg-gradient-to-r from-aether-300 to-amethyst-400 px-2 py-1 text-[11px] font-semibold text-ink-900 transition hover:brightness-110 disabled:opacity-50">
-        {busy ? <><Spinner size={10} /> …</> : '↻ Reroll'}
-      </button>
+    <div className="mb-2 space-y-1.5">
+      <input
+        value={data.prompt || ''}
+        onChange={(e) => set({ prompt: e.target.value })}
+        placeholder="Optional: e.g. a high-end arcane reagent shop"
+        className="w-full rounded-md border border-white/10 bg-ink-700 px-2 py-1 text-[11px] text-white placeholder:text-white/30 outline-none focus:border-amethyst-400/50"
+      />
+      <div className="flex items-center gap-1.5">
+        <select value={data.shopType} onChange={(e) => set({ shopType: e.target.value })} className="min-w-0 flex-1 rounded-md border border-white/10 bg-ink-700 px-1.5 py-1 text-[11px] text-white/75 outline-none">
+          {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
+        <select value={data.level} onChange={(e) => set({ level: e.target.value })} className="rounded-md border border-white/10 bg-ink-700 px-1.5 py-1 text-[11px] text-white/75 outline-none">
+          {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
+        </select>
+        <button onClick={reroll} disabled={busy} className="inline-flex shrink-0 items-center gap-1 rounded-md bg-gradient-to-r from-aether-300 to-amethyst-400 px-2 py-1 text-[11px] font-semibold text-ink-900 transition hover:brightness-110 disabled:opacity-50">
+          {busy ? <><Spinner size={10} /> …</> : '↻ Reroll'}
+        </button>
+      </div>
     </div>
   )
 

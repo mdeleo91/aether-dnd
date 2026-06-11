@@ -84,7 +84,7 @@ export default function InitiativeTracker({ card, onData, party = [] }) {
 
   const aiEncounter = async () => {
     setBusy(true); setMsg('')
-    const res = await aiGenerate('encounter', { difficulty: 'medium', party: 'four level-5 PCs' })
+    const res = await aiGenerate('encounter', { difficulty: 'medium', party: 'four level-5 PCs', prompt: data.encPrompt || '' })
     setBusy(false)
     if (res.demo) { setMsg('Set AI_API_KEY in Vercel to generate encounters.'); return }
     if (res.error) { setMsg(res.error); return }
@@ -138,6 +138,13 @@ export default function InitiativeTracker({ card, onData, party = [] }) {
           </button>
         </div>
       </div>
+
+      <input
+        value={data.encPrompt || ''}
+        onChange={(e) => set({ encPrompt: e.target.value })}
+        placeholder="Optional: guide the AI encounter (e.g. cultist ambush near a ruined shrine)"
+        className="mt-2 w-full rounded-md border border-white/10 bg-ink-700 px-2 py-1 text-[11px] text-white placeholder:text-white/30 outline-none focus:border-amethyst-400/50"
+      />
 
       {msg && <p className="px-1 pt-2 text-[11px] text-amethyst-200">{msg}</p>}
 
