@@ -62,3 +62,6 @@ set the environment variables from [`SETUP.md`](./SETUP.md) in the Vercel projec
 Dungeons & Dragons and D&D are trademarks of Wizards of the Coast. AETHER is an independent
 tool built on the 5e SRD and is not affiliated with or endorsed by Wizards of the Coast. This
 project is a product mockup/demo.
+
+
+<!-- redeploy: sync HEAD (3-page character sheet) to production -->
