@@ -145,6 +145,33 @@ function normalizeSpellSlots(s) {
   return out
 }
 
+function emptySpellsByLevel() {
+  const o = {}
+  SPELL_LEVELS.forEach((l) => (o[l] = ''))
+  return o
+}
+function normalizeSpellsByLevel(s) {
+  const out = emptySpellsByLevel()
+  if (s && typeof s === 'object') {
+    SPELL_LEVELS.forEach((l) => {
+      const v = s[l] ?? s[String(l)]
+      if (Array.isArray(v)) out[l] = v.filter(Boolean).join(', ')
+      else if (typeof v === 'string') out[l] = v
+    })
+  }
+  return out
+}
+function normalizeAllies(a) {
+  if (Array.isArray(a)) return a.map((x) => (typeof x === 'string' ? { name: x, notes: '' } : { name: x.name || '', notes: x.notes || x.note || '' }))
+  if (typeof a === 'string' && a.trim()) return [{ name: a.trim(), notes: '' }]
+  return []
+}
+function asText(v) {
+  if (typeof v === 'string') return v
+  if (Array.isArray(v)) return v.filter(Boolean).join(', ')
+  return ''
+}
+
 // Bring any member (old summary shape, AI import, or already-full) to the full
 // 5e sheet shape. Unknowns are left blank; abilities default to 10.
 export function normalizeMember(m = {}) {
@@ -185,7 +212,7 @@ export function normalizeMember(m = {}) {
     spellAtkBonus: m.spellAtkBonus ?? '',
     spellSlots: normalizeSpellSlots(m.spellSlots),
     spells: typeof m.spells === 'string' ? m.spells : Array.isArray(m.spells) ? m.spells.join(', ') : '',
-    // narrative
+    // narrative (page 1)
     features: m.features || '',
     proficienciesLanguages: m.proficienciesLanguages || m.languages || '',
     equipment: m.equipment || '',
@@ -193,7 +220,24 @@ export function normalizeMember(m = {}) {
     ideals: m.ideals || '',
     bonds: m.bonds || '',
     flaws: m.flaws || '',
+    // page 2 — character details / backstory
+    age: m.age ?? '',
+    height: m.height || '',
+    weight: m.weight || '',
+    eyes: m.eyes || '',
+    skin: m.skin || '',
+    hair: m.hair || '',
+    portrait: m.portrait || '',
     backstory: m.backstory || m.notes || '',
+    allies: normalizeAllies(m.allies),
+    additionalFeatures: m.additionalFeatures || '',
+    treasure: m.treasure || '',
+    // page 3 — spell detail (spellClass/SaveDC/AtkBonus/Slots already above)
+    spellcastingAbility: m.spellcastingAbility || '',
+    cantrips: asText(m.cantrips),
+    spellsByLevel: normalizeSpellsByLevel(m.spellsByLevel),
+    // remembered page in the detail view (0/1/2)
+    _page: Math.max(0, Math.min(2, num(m._page, 0))),
   }
 }
 
@@ -203,6 +247,7 @@ export function blankMember() {
 
 // Map a raw AI-vision extraction into the full member model (then normalize).
 export function fromParsedSheet(d = {}) {
+  const ap = d.appearance || {}
   return normalizeMember({
     name: d.name,
     classes: d.classes || d.class,
@@ -237,6 +282,20 @@ export function fromParsedSheet(d = {}) {
     ideals: d.ideals,
     bonds: d.bonds,
     flaws: d.flaws,
+    // page 2
+    age: d.age ?? ap.age,
+    height: d.height ?? ap.height,
+    weight: d.weight ?? ap.weight,
+    eyes: d.eyes ?? ap.eyes,
+    skin: d.skin ?? ap.skin,
+    hair: d.hair ?? ap.hair,
     backstory: d.backstory || d.notes,
+    allies: d.allies || d.organizations || d.alliesOrganizations,
+    additionalFeatures: d.additionalFeatures,
+    treasure: d.treasure,
+    // page 3
+    spellcastingAbility: d.spellcastingAbility,
+    cantrips: d.cantrips,
+    spellsByLevel: d.spellsByLevel || d.spellsByLvl,
   })
 }
