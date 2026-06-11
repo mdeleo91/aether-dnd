@@ -6,10 +6,12 @@
 //
 // Callers should NEVER fall back to hardcoded content on { demo } — show a
 // "set AI_API_KEY" state instead.
-const CAMPAIGN =
-  'The Sunken Crown — a flooded D&D 5e town (Hollowmere) menaced by the Drowned Choir, a cult trying to summon a kraken. A party of four level-5 adventurers.'
-
-export async function aiGenerate(kind, params = {}, campaign = CAMPAIGN) {
+//
+// `campaign` is OPTIONAL theme context. It defaults to '' so a fresh campaign
+// produces VARIED, unanchored results — generation is NOT tied to any built-in
+// setting. Steer a single result with the per-card guiding prompt (params.prompt),
+// or pass real campaign details here to theme everything.
+export async function aiGenerate(kind, params = {}, campaign = '') {
   try {
     const r = await fetch('/api/generate', {
       method: 'POST',
